@@ -5,6 +5,25 @@ AgencyOS blueprint (Digital Marketing Agency ERP & CEO Command Center). Track
 the whole company from one place: sales pipeline, proposals, projects,
 social, content, SEO, paid ads, finance, HR, client portal and reports.
 
+## Screenshots
+
+![CEO Command Center](ag-panel-1-overview.png)
+*CEO Command Center — business snapshot, sales pipeline, client portfolio and delivery ops.*
+
+![CRM & Pipeline](ag-panel-2-crm.png)
+*CRM & Pipeline — 10-stage lifecycle kanban with stage-weighted expected revenue.*
+
+![Social Monitoring](ag-panel-3-monitoring.png)
+*Social Monitoring — every client's social accounts in one place: followers, growth, reach, impressions, engagement.*
+
+![Finance](ag-panel-4-finance.png)
+*Finance — monthly revenue, expenses, receivables aging and per-client profitability.*
+
+![Client Portal](ag-panel-5-portal.png)
+*Client Portal — what a client sees: services, milestones, content and brief approvals, invoices.*
+
+Screenshots show the demo data that ships with the app (labeled DEMO inside the app); real client records replace them from the Team, Clients and Tasks pages.
+
 ## Run
 
 Double-click `index.html`, or serve the folder:
