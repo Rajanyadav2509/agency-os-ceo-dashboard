@@ -8,7 +8,8 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app">
+<div id="auth-root"></div>
+<div class="app" id="app" style="display:none">
   <aside class="sidebar">
     <div class="logo">Agency<span>OS</span></div>
     <div class="ceo-card">
@@ -19,34 +20,49 @@
       </div>
     </div>
     <nav id="nav">
-      <button data-view="overview" class="active">Overview</button>
+      <div class="nav-group">Command</div>
+      <button data-view="overview" class="active">CEO Command Center</button>
       <button data-view="alerts">Alerts</button>
-      <button data-view="team">Team</button>
-      <button data-view="groups">Team Groups</button>
+      <div class="nav-group">Sales</div>
+      <button data-view="crm">CRM &amp; Pipeline</button>
+      <button data-view="proposals">Sales &amp; Proposals</button>
+      <button data-view="catalog">Service Catalog</button>
+      <div class="nav-group">Delivery</div>
+      <button data-view="projects">Projects</button>
       <button data-view="tasks">Tasks</button>
+      <button data-view="social">Social Calendar</button>
+      <button data-view="content">Content Studio</button>
+      <button data-view="seo">SEO</button>
+      <button data-view="ads">Paid Ads</button>
       <button data-view="clients">Clients</button>
-      <button data-view="leads">Leads</button>
+      <button data-view="portal">Client Portal</button>
+      <div class="nav-group">Business</div>
       <button data-view="finance">Finance</button>
       <button data-view="marketing">Marketing</button>
       <button data-view="goals">Goals</button>
       <button data-view="reports">Reports</button>
       <button data-view="deadlines">Deadlines</button>
-      <button data-view="attendance">Attendance</button>
+      <div class="nav-group">People</div>
+      <button data-view="hr">HR</button>
+      <button data-view="team">Team</button>
+      <button data-view="groups">Team Groups</button>
+      <button data-view="attendance">Attendance &amp; Leave</button>
       <button data-view="performance">Performance</button>
       <button data-view="workload">Workload</button>
       <button data-view="activity">Activity Log</button>
-      <button data-view="ads">Meta Ads</button>
+      <div class="nav-group">System</div>
       <button data-view="connections">Connections</button>
       <button data-view="settings">Settings</button>
     </nav>
     <div class="side-foot">
       <span class="demo-badge">DEMO DATA</span>
       <p>Sample employees, tasks and ad numbers. Replace them with your real team in Settings / Team.</p>
+      <button class="btn ghost small" id="logoutBtn" onclick="logout()" style="margin-top:10px">Logout</button>
     </div>
   </aside>
   <main class="main">
     <header class="topbar">
-      <h1 id="viewTitle">CEO Overview</h1>
+      <h1 id="viewTitle">CEO Command Center</h1>
       <div class="top-right">
         <span id="topDate"></span>
         <span class="live-dot" title="Live — updates across tabs">● LIVE</span>

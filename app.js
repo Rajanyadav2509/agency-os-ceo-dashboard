@@ -22,6 +22,28 @@ const waLink = (p, text) => 'https://wa.me/' + waNumber(p) + (text ? '?text=' + 
 const taskMsg = t => { const c = clientById(t.clientId); return 'Hi, new task for you: "' + t.title + '"' + (c ? ' — Client: ' + c.name : '') + (t.deadline ? ' — Deadline: ' + fmtDate(t.deadline) : '') + ' — Priority: ' + t.priority + '. — ' + (state.settings.agencyName || 'Agency'); };
 const nextTeamId = () => { const n = state.employees.map(e => parseInt(String(e.teamId || '').replace(/\D/g, ''), 10) || 0); return 'TM-' + String((n.length ? Math.max.apply(null, n) : 0) + 1).padStart(3, '0'); };
 
+/* Raj's social accounts — exact URLs from his GitHub profile "Let's Connect"
+   (https://github.com/Rajanyadav2509). Do not change these URLs. */
+const SOCIAL_ACCOUNTS = [
+  { platform: 'LinkedIn', handle: 'rajan-yadav-9638452a5', url: 'https://www.linkedin.com/in/rajan-yadav-9638452a5', status: 'Connected' },
+  { platform: 'GitHub', handle: 'Rajanyadav2509', url: 'https://github.com/Rajanyadav2509', status: 'Connected' },
+  { platform: 'Portfolio', handle: 'rajan-portfolio-lemon.vercel.app', url: 'https://rajan-portfolio-lemon.vercel.app', status: 'Connected' },
+  { platform: 'Instagram', handle: '@errajanyadav_', url: 'https://www.instagram.com/errajanyadav_', status: 'Connected' },
+  { platform: 'WhatsApp', handle: '+91 7905040238', url: 'https://wa.me/917905040238', status: 'Connected' },
+  { platform: 'Substack', handle: '@rajanyadav3', url: 'https://substack.com/@rajanyadav3', status: 'Connected' },
+  { platform: 'X', handle: '@buildwithrajan', url: 'https://x.com/buildwithrajan', status: 'Connected' },
+  { platform: 'Facebook', handle: 'Rajan Yadav • Tech', url: 'https://www.facebook.com/techgrowthlab', status: 'Connected' },
+];
+/* Demo login — stored only in this browser (no backend on this static site). */
+const AUTH_KEY = 'agencyos-auth';
+const SESSION_KEY = 'agencyos-session';
+
+/* Blueprint CRM lifecycle stages (Sec. 4). */
+const CRM_STAGES = ['New Lead', 'Qualified', 'Discovery', 'Proposal Sent', 'Negotiation', 'Won / Contracted', 'Onboarding', 'Active', 'Renewal', 'Lost'];
+const CRM_WEIGHTS = { 'New Lead': 0.10, 'Qualified': 0.20, 'Discovery': 0.30, 'Proposal Sent': 0.50, 'Negotiation': 0.70, 'Won / Contracted': 1.00, 'Onboarding': 0.90, 'Active': 1.00, 'Renewal': 0.60, 'Lost': 0 };
+const POST_STATUSES = ['Draft', 'Review', 'Approved', 'Scheduled', 'Published'];
+const BRIEF_STATUSES = ['Brief', 'Draft', 'Review', 'Revisions', 'Approved', 'Delivered'];
+
 /* ---------------- Seed data ---------------- */
 function seed() {
   const emp = (name, role, status, resp, color, teamId, phone, team) => ({ id: uid(), name, role, status, responsibilities: resp, color, demo: true, teamId, phone, team });
@@ -49,40 +71,43 @@ function seed() {
       results: null, notes: 'Demo client.' },
   ];
 
-  const T = (title, assignee, client, deadline, priority, status, completed) => ({
+  /* Projects (Sec. 5) — every task below is linked to one of these. All demo. */
+  const projects = [
+    { id: 'p-amarendra', name: 'LinkedIn Growth — Amarendra', clientId: 'c-amarendra', ownerId: E(0), type: 'Retainer', status: 'On track', startDate: addDays(-45), dueDate: addDays(30), demo: true },
+    { id: 'p-alexx', name: 'LinkedIn Growth — Alexx Roy', clientId: 'c-alexx', ownerId: E(0), type: 'Retainer', status: 'On track', startDate: addDays(-40), dueDate: addDays(35), demo: true },
+    { id: 'p-fitlife', name: 'Instagram Growth — FitLife Gym', clientId: 'c-fitlife', ownerId: E(1), type: 'Retainer', status: 'At risk', startDate: addDays(-40), dueDate: addDays(10), demo: true },
+    { id: 'p-techstart', name: 'Meta Ads — TechStart Solutions', clientId: 'c-techstart', ownerId: E(3), type: 'Campaign', status: 'On track', startDate: addDays(-25), dueDate: addDays(21), demo: true },
+    { id: 'p-aroma', name: 'Social Media — Cafe Aroma', clientId: 'c-aroma', ownerId: E(2), type: 'Retainer', status: 'On track', startDate: addDays(-60), dueDate: addDays(5), demo: true },
+  ];
+
+  const T = (title, assignee, client, deadline, priority, status, completed, projectId) => ({
     id: uid(), title, assigneeId: assignee, clientId: client, deadline, priority, status,
-    completedAt: completed || '', createdAt: addDays(-10),
+    completedAt: completed || '', createdAt: addDays(-10), projectId: projectId || '',
   });
   const tasks = [
-    T('LinkedIn carousel — PACT framework', E(0), 'c-amarendra', addDays(2), 'High', 'doing'),
-    T('Weekly content calendar — Amarendra', E(0), 'c-amarendra', addDays(-1), 'High', 'todo'),
-    T('Engagement replies — Amarendra LinkedIn', E(2), 'c-amarendra', addDays(0), 'Medium', 'doing'),
-    T('Freedom Lifestyle — 3 LinkedIn posts', E(0), 'c-alexx', addDays(3), 'Medium', 'todo'),
-    T('YouTube SEO pack — Alexx channel', E(1), 'c-alexx', addDays(6), 'Medium', 'doing'),
-    T('Meta ad creatives — TechStart', E(3), 'c-techstart', addDays(4), 'High', 'todo'),
-    T('Instagram reels — FitLife Gym (4)', E(1), 'c-fitlife', addDays(1), 'High', 'doing'),
-    T('Monthly report — Cafe Aroma', E(2), 'c-aroma', addDays(-2), 'Medium', 'todo'),
-    T('Client onboarding call — TechStart', E(4), 'c-techstart', addDays(-5), 'Medium', 'done', addDays(-5)),
-    T('LinkedIn post — Time Reset morning routine', E(0), 'c-amarendra', addDays(-1), 'Medium', 'done', addDays(-1)),
-    T('Carousel design — PACT results', E(4), 'c-amarendra', addDays(-4), 'High', 'done', addDays(-2)),
-    T('Ad performance report — TechStart', E(3), 'c-techstart', addDays(-3), 'Medium', 'done', addDays(-3)),
-    T('Reels batch — FitLife (week 2)', E(1), 'c-fitlife', addDays(-6), 'Medium', 'done', addDays(-6)),
-    T('Newsletter draft — Amarendra', E(0), 'c-amarendra', addDays(-2), 'Medium', 'done', addDays(-4)),
+    T('LinkedIn carousel — PACT framework', E(0), 'c-amarendra', addDays(2), 'High', 'doing', '', 'p-amarendra'),
+    T('Weekly content calendar — Amarendra', E(0), 'c-amarendra', addDays(-1), 'High', 'todo', '', 'p-amarendra'),
+    T('Engagement replies — Amarendra LinkedIn', E(2), 'c-amarendra', addDays(0), 'Medium', 'doing', '', 'p-amarendra'),
+    T('Freedom Lifestyle — 3 LinkedIn posts', E(0), 'c-alexx', addDays(3), 'Medium', 'todo', '', 'p-alexx'),
+    T('YouTube SEO pack — Alexx channel', E(1), 'c-alexx', addDays(6), 'Medium', 'doing', '', 'p-alexx'),
+    T('Meta ad creatives — TechStart', E(3), 'c-techstart', addDays(4), 'High', 'todo', '', 'p-techstart'),
+    T('Instagram reels — FitLife Gym (4)', E(1), 'c-fitlife', addDays(1), 'High', 'doing', '', 'p-fitlife'),
+    T('Monthly report — Cafe Aroma', E(2), 'c-aroma', addDays(-2), 'Medium', 'todo', '', 'p-aroma'),
+    T('Client onboarding call — TechStart', E(4), 'c-techstart', addDays(-5), 'Medium', 'done', addDays(-5), 'p-techstart'),
+    T('LinkedIn post — Time Reset morning routine', E(0), 'c-amarendra', addDays(-1), 'Medium', 'done', addDays(-1), 'p-amarendra'),
+    T('Carousel design — PACT results', E(4), 'c-amarendra', addDays(-4), 'High', 'done', addDays(-2), 'p-amarendra'),
+    T('Ad performance report — TechStart', E(3), 'c-techstart', addDays(-3), 'Medium', 'done', addDays(-3), 'p-techstart'),
+    T('Reels batch — FitLife (week 2)', E(1), 'c-fitlife', addDays(-6), 'Medium', 'done', addDays(-6), 'p-fitlife'),
+    T('Newsletter draft — Amarendra', E(0), 'c-amarendra', addDays(-2), 'Medium', 'done', addDays(-4), 'p-amarendra'),
   ];
 
   const campaigns = [
-    { id: uid(), name: 'LinkedIn Growth — Lead Gen', platform: 'Meta', spend: 12500, reach: 48000, leads: 86, status: 'Active', demo: true },
-    { id: uid(), name: 'Freedom Lifestyle — Brand Awareness', platform: 'Meta', spend: 8200, reach: 32500, leads: 41, status: 'Active', demo: true },
-    { id: uid(), name: 'YouTube SEO — Traffic', platform: 'Meta', spend: 5000, reach: 21000, leads: 28, status: 'Paused', demo: true },
+    { id: uid(), name: 'LinkedIn Growth — Lead Gen', platform: 'Meta', budget: 15000, spend: 12500, reach: 48000, leads: 86, conversions: 52, status: 'Active', demo: true },
+    { id: uid(), name: 'Freedom Lifestyle — Brand Awareness', platform: 'Meta', budget: 10000, spend: 8200, reach: 32500, leads: 41, conversions: 24, status: 'Active', demo: true },
+    { id: uid(), name: 'YouTube SEO — Traffic', platform: 'Meta', budget: 6000, spend: 5000, reach: 21000, leads: 28, conversions: 15, status: 'Paused', demo: true },
   ];
 
-  const connections = [
-    { id: uid(), platform: 'WhatsApp', handle: '', status: 'Not connected', followers: '—', postsWeek: '—', demo: true },
-    { id: uid(), platform: 'Instagram', handle: '@errajanyadav_', status: 'Not connected', followers: '—', postsWeek: '—', demo: true },
-    { id: uid(), platform: 'Facebook', handle: '', status: 'Not connected', followers: '—', postsWeek: '—', demo: true },
-    { id: uid(), platform: 'LinkedIn', handle: '', status: 'Not connected', followers: '—', postsWeek: '—', demo: true },
-    { id: uid(), platform: 'Threads', handle: '', status: 'Not connected', followers: '—', postsWeek: '—', demo: true },
-  ];
+  const connections = SOCIAL_ACCOUNTS.map(a => ({ id: uid(), ...a }));
 
   const goals = {};
   employees.forEach((e, i) => { goals[e.id] = { tasksTarget: [12, 10, 12, 8, 10][i] }; });
@@ -110,19 +135,19 @@ function seed() {
     ],
   };
   const leads = [
-    { id: uid(), name: 'Rahul Verma — Fitness Studio', source: 'Meta', service: 'Instagram Growth', value: 20000, stage: 'Proposal sent', createdAt: addDays(-4) },
-    { id: uid(), name: 'Sharma Jewellers', source: 'Google', service: 'Meta Ads', value: 35000, stage: 'Contacted', createdAt: addDays(-2) },
-    { id: uid(), name: 'Dr. Mehta Clinic', source: 'Referral', service: 'Social Media Management', value: 15000, stage: 'Won', createdAt: addDays(-12) },
-    { id: uid(), name: 'Boutique Zara', source: 'Instagram', service: 'LinkedIn Growth', value: 18000, stage: 'New', createdAt: addDays(-1) },
+    { id: uid(), name: 'Rahul Verma — Fitness Studio', source: 'Meta', service: 'Instagram Growth', value: 20000, stage: 'Proposal Sent', createdAt: addDays(-4) },
+    { id: uid(), name: 'Sharma Jewellers', source: 'Google', service: 'Meta Ads', value: 35000, stage: 'Qualified', createdAt: addDays(-2) },
+    { id: uid(), name: 'Dr. Mehta Clinic', source: 'Referral', service: 'Social Media Management', value: 15000, stage: 'Won / Contracted', createdAt: addDays(-12) },
+    { id: uid(), name: 'Boutique Zara', source: 'Instagram', service: 'LinkedIn Growth', value: 18000, stage: 'New Lead', createdAt: addDays(-1) },
     { id: uid(), name: 'Kavya Interiors', source: 'LinkedIn', service: 'Personal Branding', value: 30000, stage: 'Negotiation', createdAt: addDays(-6) },
     { id: uid(), name: 'City Dental Care', source: 'Google', service: 'Meta Ads', value: 22000, stage: 'Lost', createdAt: addDays(-15) },
   ];
   const marketing = [
-    { id: uid(), name: 'LinkedIn Growth — Lead Gen', channel: 'Meta', spend: 12500, leads: 86, revenue: 60000, status: 'Active', demo: true },
-    { id: uid(), name: 'Freedom Lifestyle — Brand Awareness', channel: 'Meta', spend: 8200, leads: 41, revenue: 40000, status: 'Active', demo: true },
-    { id: uid(), name: 'Google Search — LinkedIn Growth', channel: 'Google', spend: 9000, leads: 34, revenue: 45000, status: 'Active', demo: true },
-    { id: uid(), name: 'Google — YouTube SEO', channel: 'Google', spend: 6000, leads: 22, revenue: 28000, status: 'Paused', demo: true },
-    { id: uid(), name: 'LinkedIn Ads — B2B Founders', channel: 'LinkedIn', spend: 15000, leads: 19, revenue: 60000, status: 'Active', demo: true },
+    { id: uid(), name: 'LinkedIn Growth — Lead Gen', channel: 'Meta', budget: 15000, spend: 12500, leads: 86, conversions: 52, revenue: 60000, status: 'Active', demo: true },
+    { id: uid(), name: 'Freedom Lifestyle — Brand Awareness', channel: 'Meta', budget: 10000, spend: 8200, leads: 41, conversions: 24, revenue: 40000, status: 'Active', demo: true },
+    { id: uid(), name: 'Google Search — LinkedIn Growth', channel: 'Google', budget: 12000, spend: 9000, leads: 34, conversions: 21, revenue: 45000, status: 'Active', demo: true },
+    { id: uid(), name: 'Google — YouTube SEO', channel: 'Google', budget: 8000, spend: 6000, leads: 22, conversions: 13, revenue: 28000, status: 'Paused', demo: true },
+    { id: uid(), name: 'LinkedIn Ads — B2B Founders', channel: 'LinkedIn', budget: 18000, spend: 15000, leads: 19, conversions: 11, revenue: 60000, status: 'Active', demo: true },
   ];
   const companyGoals = [
     { id: uid(), label: 'Quarterly revenue', target: 500000, current: 285000, unit: '₹', demo: true },
@@ -130,9 +155,62 @@ function seed() {
     { id: uid(), label: 'New hires this quarter', target: 3, current: 1, unit: '', demo: true },
   ];
 
+  /* Proposals (Sec. 10) — all demo. */
+  const proposals = [
+    { id: uid(), leadName: 'Rahul Verma — Fitness Studio', clientId: '', title: 'Instagram Growth retainer — 3 months', scope: '12 reels/mo, daily stories, community replies, monthly report', fee: 20000, status: 'Sent', validUntil: addDays(10), version: 1, createdAt: addDays(-4), demo: true },
+    { id: uid(), leadName: 'Kavya Interiors', clientId: '', title: 'Personal Branding — LinkedIn', scope: '8 posts/mo, 2 carousels, profile optimisation, engagement', fee: 30000, status: 'Negotiation', validUntil: addDays(5), version: 2, createdAt: addDays(-6), demo: true },
+    { id: uid(), leadName: 'Sharma Jewellers', clientId: '', title: 'Meta Ads — festive campaign', scope: 'Ad account setup, 3 campaigns, creative, weekly optimisation', fee: 35000, status: 'Draft', validUntil: addDays(14), version: 1, createdAt: addDays(-2), demo: true },
+    { id: uid(), leadName: 'Dr. Mehta Clinic', clientId: '', title: 'Social Media Management', scope: 'Daily posting, reels, Google Business updates', fee: 15000, status: 'Accepted', validUntil: addDays(-12), version: 1, createdAt: addDays(-12), demo: true },
+  ];
+  /* Service catalog (Sec. 5) — packages, retainers, one-time services. All demo prices. */
+  const services = [
+    { id: uid(), name: 'LinkedIn Growth Retainer', type: 'Retainer', price: 25000, unit: '/mo', deliverables: '12 posts/mo, 2 carousels, profile optimisation, engagement, monthly report', sla: 'Posts delivered by Friday each week', demo: true },
+    { id: uid(), name: 'YouTube SEO Pack', type: 'Package', price: 15000, unit: 'one-time', deliverables: 'Titles, descriptions, tags, thumbnails, video summaries', sla: 'Delivery in 5 working days', demo: true },
+    { id: uid(), name: 'Meta Ads Management', type: 'Retainer', price: 20000, unit: '/mo', deliverables: 'Campaign setup, 3 live campaigns, creative, weekly optimisation, report', sla: 'Weekly report every Monday', demo: true },
+    { id: uid(), name: 'Social Media Management', type: 'Retainer', price: 18000, unit: '/mo', deliverables: 'Daily posting, 8 reels/mo, stories, community replies', sla: 'Calendar shared by 25th of each month', demo: true },
+    { id: uid(), name: 'Personal Branding Sprint', type: 'Package', price: 30000, unit: 'one-time', deliverables: 'Positioning, content pillars, 8 posts, profile rewrite', sla: 'Delivery in 3 weeks', demo: true },
+    { id: uid(), name: 'Website Design', type: 'One-time', price: 40000, unit: 'one-time', deliverables: '5-page website, mobile responsive, basic SEO, launch', sla: 'Delivery in 4 weeks', demo: true },
+  ];
+  /* Social posts (Sec. 6) — workflow: Draft → Review → Approved → Scheduled → Published. All demo. */
+  const posts = [
+    { id: uid(), clientId: 'c-amarendra', platform: 'LinkedIn', format: 'Carousel', caption: 'PACT framework — how to reset your time in 7 days', date: addDays(1), status: 'Scheduled', reach: null, demo: true },
+    { id: uid(), clientId: 'c-amarendra', platform: 'LinkedIn', format: 'Text', caption: 'Time Reset morning routine — 5 habits before 8 AM', date: addDays(-1), status: 'Published', reach: null, demo: true },
+    { id: uid(), clientId: 'c-alexx', platform: 'LinkedIn', format: 'Text', caption: 'Freedom Lifestyle — 3 lessons from building in public', date: addDays(2), status: 'Approved', reach: null, demo: true },
+    { id: uid(), clientId: 'c-alexx', platform: 'LinkedIn', format: 'Carousel', caption: 'My content system — POSITION to REVIEW', date: addDays(3), status: 'Review', reach: null, demo: true },
+    { id: uid(), clientId: 'c-fitlife', platform: 'Instagram', format: 'Reel', caption: 'Gym reel — 30-day transformation teaser', date: addDays(1), status: 'Draft', reach: null, demo: true },
+    { id: uid(), clientId: 'c-fitlife', platform: 'Instagram', format: 'Reel', caption: 'Trainer tip — squat form in 30 seconds', date: addDays(0), status: 'Scheduled', reach: null, demo: true },
+    { id: uid(), clientId: 'c-techstart', platform: 'LinkedIn', format: 'Text', caption: 'SaaS launch post — why we built TechStart', date: addDays(4), status: 'Draft', reach: null, demo: true },
+    { id: uid(), clientId: 'c-aroma', platform: 'Instagram', format: 'Static', caption: 'Weekend coffee special — Cafe Aroma', date: addDays(-2), status: 'Published', reach: 2400, demo: true },
+  ];
+  /* Creative briefs (Sec. 7) — all demo. */
+  const briefs = [
+    { id: uid(), clientId: 'c-amarendra', title: 'Carousel — PACT results (client proof)', type: 'Design', ownerId: E(4), status: 'Review', revisions: 1, due: addDays(2), demo: true },
+    { id: uid(), clientId: 'c-amarendra', title: 'Newsletter — Time Reset weekly', type: 'Copy', ownerId: E(0), status: 'Draft', revisions: 0, due: addDays(3), demo: true },
+    { id: uid(), clientId: 'c-alexx', title: 'Video script — Freedom Lifestyle story', type: 'Video', ownerId: E(1), status: 'Approved', revisions: 2, due: addDays(5), demo: true },
+    { id: uid(), clientId: 'c-fitlife', title: 'Reels batch — week 3 (4 reels)', type: 'Video', ownerId: E(1), status: 'Brief', revisions: 0, due: addDays(1), demo: true },
+    { id: uid(), clientId: 'c-techstart', title: 'Ad creatives — festive offer (3 variants)', type: 'Design', ownerId: E(4), status: 'Revisions', revisions: 2, due: addDays(4), demo: true },
+  ];
+  /* SEO keywords (Sec. 8) — positions are demo samples; add real rank data when tracked. */
+  const keywords = [
+    { id: uid(), clientId: '', keyword: 'social media marketing agency bhavnagar', intent: 'Local', targetPage: '/', priority: 'High', status: 'Tracking', position: 9, demo: true },
+    { id: uid(), clientId: '', keyword: 'youtube seo services india', intent: 'Commercial', targetPage: '/youtube-seo', priority: 'Medium', status: 'Content planned', position: null, demo: true },
+    { id: uid(), clientId: '', keyword: 'instagram growth agency', intent: 'Commercial', targetPage: '/services', priority: 'Medium', status: 'Tracking', position: 31, demo: true },
+    { id: uid(), clientId: 'c-amarendra', keyword: 'time management coach india', intent: 'Commercial', targetPage: '/services', priority: 'High', status: 'Tracking', position: null, demo: true },
+    { id: uid(), clientId: 'c-amarendra', keyword: 'personal branding linkedin', intent: 'Informational', targetPage: '/blog', priority: 'Medium', status: 'Tracking', position: null, demo: true },
+    { id: uid(), clientId: 'c-alexx', keyword: 'linkedin growth freelancer', intent: 'Commercial', targetPage: '/services', priority: 'High', status: 'Tracking', position: null, demo: true },
+  ];
+  /* SEO technical issues (Sec. 8) — all demo. */
+  const seoIssues = [
+    { id: uid(), clientId: '', issue: 'Portfolio — 3 service pages not indexed yet', severity: 'High', status: 'In progress', demo: true },
+    { id: uid(), clientId: 'c-fitlife', issue: 'Slow mobile load (LCP 4.2s) — demo sample', severity: 'High', status: 'Open', demo: true },
+    { id: uid(), clientId: 'c-techstart', issue: 'Broken internal link on pricing page — demo sample', severity: 'Low', status: 'Fixed', demo: true },
+    { id: uid(), clientId: 'c-aroma', issue: 'Images missing alt text (12 images) — demo sample', severity: 'Low', status: 'Open', demo: true },
+  ];
+
   return {
-    settings: { agencyName: 'Raj Digital Agency', ceoName: 'Rajan Yadav', currency: '₹' },
+    settings: { agencyName: 'Raj Digital Agency', ceoName: 'Rajan Yadav', currency: '₹', capacity: 5 },
     employees, clients, tasks, campaigns, connections, goals, attendance: {}, leaveRequests, announcements, finance, leads, marketing, companyGoals,
+    proposals, services, projects, posts, briefs, keywords, seoIssues,
     activity: [
       { id: uid(), text: 'Priya Sharma completed “LinkedIn post — Time Reset morning routine”.', at: hoursAgo(3) },
       { id: uid(), text: 'Arjun Mehta moved “Instagram reels — FitLife Gym (4)” to Doing.', at: hoursAgo(5) },
@@ -156,6 +234,26 @@ function load() {
   if (!state.leads) state.leads = seed().leads;
   if (!state.marketing) state.marketing = seed().marketing;
   if (!state.companyGoals) state.companyGoals = seed().companyGoals;
+  // New blueprint collections (added 2026-11-26 rebuild)
+  const s2 = seed();
+  if (!state.proposals) state.proposals = s2.proposals;
+  if (!state.services) state.services = s2.services;
+  if (!state.projects) state.projects = s2.projects;
+  if (!state.posts) state.posts = s2.posts;
+  if (!state.briefs) state.briefs = s2.briefs;
+  if (!state.keywords) state.keywords = s2.keywords;
+  if (!state.seoIssues) state.seoIssues = s2.seoIssues;
+  if (!state.settings.capacity) state.settings.capacity = 5;
+  // Lead stage migration to the blueprint lifecycle (Sec. 4)
+  const STAGE_MAP = { 'New': 'New Lead', 'Contacted': 'Qualified', 'Proposal sent': 'Proposal Sent', 'Won': 'Won / Contracted' };
+  state.leads.forEach(l => { if (STAGE_MAP[l.stage]) l.stage = STAGE_MAP[l.stage]; });
+  // Campaign migration: budget + conversions
+  state.campaigns.forEach(c => { if (c.budget == null) c.budget = Math.round((c.spend || 0) * 1.25); if (c.conversions == null) c.conversions = Math.max(0, Math.round((c.leads || 0) * 0.6)); });
+  state.marketing.forEach(c => { if (c.budget == null) c.budget = Math.round((c.spend || 0) * 1.25); if (c.conversions == null) c.conversions = Math.max(0, Math.round((c.leads || 0) * 0.6)); });
+  // Tasks: link to a project of the same client
+  state.tasks.forEach(t => { if (!t.projectId) { const p = state.projects.find(x => x.clientId === t.clientId); if (p) t.projectId = p.id; } });
+  // Connections: the canonical 8 accounts from the GitHub profile
+  if (!state.connections || !state.connections.some(c => c.platform === 'GitHub')) state.connections = SOCIAL_ACCOUNTS.map(a => ({ id: uid(), ...a }));
   save();
 }
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
@@ -173,10 +271,29 @@ const doneTasksOf = empId => tasksOf(empId).filter(t => t.status === 'done');
 const onTimeDone = list => list.filter(t => t.completedAt && t.deadline && t.completedAt <= t.deadline).length;
 const lateDone = list => list.filter(t => t.completedAt && t.deadline && t.completedAt > t.deadline).length;
 function workload(empId) {
+  const cap = (state.settings && state.settings.capacity) || 5;
   const n = openTasksOf(empId).length;
-  if (n >= 5) return { label: 'Overloaded', cls: 'red' };
+  if (n >= cap) return { label: 'Overloaded', cls: 'red' };
   if (n === 0) return { label: 'Available', cls: 'green' };
   return { label: 'Balanced', cls: 'blue' };
+}
+const projectById = id => state.projects.find(p => p.id === id);
+function projectProgress(p) {
+  const pt = state.tasks.filter(t => t.projectId === p.id);
+  if (!pt.length) return { pct: 0, done: 0, total: 0 };
+  const done = pt.filter(t => t.status === 'done').length;
+  return { pct: Math.round(done / pt.length * 100), done, total: pt.length };
+}
+function projectStatusPill(s) {
+  const map = { 'On track': 'green', 'At risk': 'red', 'Delayed': 'red', 'Completed': 'green', 'On hold': 'amber' };
+  return '<span class="pill ' + (map[s] || 'grey') + '">' + esc(s) + '</span>';
+}
+function clientProfit(c) {
+  const rev = Number(c.amount) || 0;
+  if (!rev) return null;
+  if (!c.demo) return { rev, cost: null, profit: null };
+  const cost = Math.round(rev * 0.6);
+  return { rev, cost, profit: rev - cost };
 }
 function statusPill(s) {
   const map = { 'Working': 'green', 'On leave': 'amber', 'Offline': 'grey', 'Active': 'green', 'Paused': 'amber', 'Done': 'green', 'Completed': 'green' };
@@ -190,7 +307,7 @@ function demoTag() { return ' <span class="pill amber">DEMO</span>'; }
 /* ---------------- Navigation ---------------- */
 let currentView = 'overview', viewParam = null;
 let taskFilter = { person: 'all', client: 'all', status: 'all' };
-const TITLES = { overview: 'CEO Overview', alerts: 'Alerts Center', team: 'Team', tasks: 'Tasks', clients: 'Clients', leads: 'Sales Pipeline', finance: 'Finance', marketing: 'Marketing', goals: 'Company Goals', reports: 'Reports', deadlines: 'Deadlines', attendance: 'Attendance & Leave', performance: 'Performance', workload: 'Workload', activity: 'Activity Log', ads: 'Meta Ads', connections: 'Connections', settings: 'Settings' };
+const TITLES = { overview: 'CEO Command Center', alerts: 'Alerts Center', team: 'Team', tasks: 'Tasks', clients: 'Clients', crm: 'CRM & Pipeline', proposals: 'Sales & Proposals', catalog: 'Service Catalog', projects: 'Projects', social: 'Social Calendar', content: 'Content Studio', seo: 'SEO', portal: 'Client Portal', finance: 'Finance', marketing: 'Marketing', goals: 'Company Goals', reports: 'Reports', deadlines: 'Deadlines', hr: 'HR', attendance: 'Attendance & Leave', performance: 'Performance', workload: 'Workload', activity: 'Activity Log', ads: 'Paid Ads', connections: 'Connections', settings: 'Settings' };
 
 function setView(v, param) {
   currentView = v; viewParam = param || null;
@@ -199,17 +316,26 @@ function setView(v, param) {
   render(); window.scrollTo(0, 0);
 }
 function render() {
+  if (!isAuthed()) return;
   const el = $('#view');
   if (currentView === 'overview') el.innerHTML = viewOverview();
   else if (currentView === 'team') el.innerHTML = viewParam ? viewTeamDetail(viewParam) : viewTeam();
   else if (currentView === 'groups') el.innerHTML = viewGroups();
   else if (currentView === 'tasks') el.innerHTML = viewTasks();
   else if (currentView === 'clients') el.innerHTML = viewParam ? viewClientDetail(viewParam) : viewClients();
+  else if (currentView === 'crm') el.innerHTML = viewCRM();
+  else if (currentView === 'proposals') el.innerHTML = viewProposals();
+  else if (currentView === 'catalog') el.innerHTML = viewCatalog();
+  else if (currentView === 'projects') el.innerHTML = viewProjects();
+  else if (currentView === 'social') el.innerHTML = viewSocial();
+  else if (currentView === 'content') el.innerHTML = viewContent();
+  else if (currentView === 'seo') el.innerHTML = viewSEO();
+  else if (currentView === 'portal') el.innerHTML = viewPortal();
+  else if (currentView === 'hr') el.innerHTML = viewHR();
   else if (currentView === 'ads') el.innerHTML = viewAds();
   else if (currentView === 'connections') el.innerHTML = viewConnections();
   else if (currentView === 'deadlines') el.innerHTML = viewDeadlines();
   else if (currentView === 'alerts') el.innerHTML = viewAlerts();
-  else if (currentView === 'leads') el.innerHTML = viewLeads();
   else if (currentView === 'finance') el.innerHTML = viewFinance();
   else if (currentView === 'marketing') el.innerHTML = viewMarketing();
   else if (currentView === 'goals') el.innerHTML = viewGoals();
@@ -227,6 +353,7 @@ function render() {
 }
 
 /* ---------------- Overview ---------------- */
+/* ---------------- CEO Command Center (Sec. 13) ---------------- */
 function viewOverview() {
   const done = state.tasks.filter(t => t.status === 'done');
   const pending = state.tasks.filter(t => t.status !== 'done');
@@ -236,9 +363,56 @@ function viewOverview() {
   const revenue = state.clients.reduce((s, c) => s + (Number(c.amount) || 0), 0);
   const spend = state.campaigns.reduce((s, c) => s + c.spend, 0);
   const leads = state.campaigns.reduce((s, c) => s + c.leads, 0);
+  const convs = state.campaigns.reduce((s, c) => s + (c.conversions || 0), 0);
   const onTime = onTimeDone(done), late = lateDone(done);
   const onTimeRate = done.length ? Math.round(onTime / done.length * 100) : 0;
-  const overloaded = state.employees.filter(e => openTasksOf(e.id).length >= 5);
+  const overloaded = state.employees.filter(e => openTasksOf(e.id).length >= ((state.settings && state.settings.capacity) || 5));
+
+  /* Business snapshot (Sec. 13) */
+  const expenses = financeExpenses();
+  const profit = revenue - expenses;
+  const margin = revenue ? Math.round(profit / revenue * 100) : 0;
+  const collected = state.finance.invoices.filter(i => i.status === 'Paid').reduce((s, i) => s + (Number(i.amount) || 0), 0) + (state.finance.cashInHand || 0);
+  /* Sales pipeline (Sec. 13) */
+  const openLeads = state.leads.filter(l => !['Won / Contracted', 'Lost'].includes(l.stage));
+  const newLeadsWeek = state.leads.filter(l => l.createdAt >= addDays(-7)).length;
+  const decided = state.leads.filter(l => ['Won / Contracted', 'Lost'].includes(l.stage));
+  const wonN = state.leads.filter(l => l.stage === 'Won / Contracted').length;
+  const winRate = decided.length ? Math.round(wonN / decided.length * 100) : 0;
+  const pipeValue = openLeads.reduce((s, l) => s + (Number(l.value) || 0), 0);
+  const expectedRev = openLeads.reduce((s, l) => s + (Number(l.value) || 0) * (CRM_WEIGHTS[l.stage] || 0), 0);
+  const proposalsSent = state.proposals.filter(p => ['Sent', 'Negotiation'].includes(p.status)).length;
+  const renewalsDue = state.clients.filter(c => c.status === 'Active' && c.deadline && c.deadline >= todayISO() && c.deadline <= addDays(30)).length;
+  /* Client portfolio (Sec. 13) */
+  const atRiskClients = state.clients.filter(c => state.tasks.some(t => t.clientId === c.id && isOverdue(t)));
+  const topClientAmt = Math.max(0, ...state.clients.map(c => Number(c.amount) || 0));
+  const concentration = revenue ? Math.round(topClientAmt / revenue * 100) : 0;
+  /* Delivery operations (Sec. 13) */
+  const projectsOnTrack = state.projects.filter(p => p.status === 'On track').length;
+  const cap = (state.settings && state.settings.capacity) || 5;
+  const totalOpen = pending.length;
+  const totalCap = state.employees.length * cap;
+  const utilization = totalCap ? Math.round(totalOpen / totalCap * 100) : 0;
+  const freeSlots = Math.max(0, totalCap - totalOpen);
+  /* Social / content (Sec. 13) */
+  const postsPlanned = state.posts.filter(p => ['Draft', 'Review'].includes(p.status)).length;
+  const postsAwaiting = state.posts.filter(p => p.status === 'Review').length;
+  const postsScheduled = state.posts.filter(p => p.status === 'Scheduled').length;
+  const postsPublished = state.posts.filter(p => p.status === 'Published').length;
+  const engagement = state.posts.filter(p => p.status === 'Published').reduce((s, p) => s + (p.reach || 0), 0);
+  /* SEO (Sec. 13) — demo figures, clearly labeled */
+  const seoOpen = state.seoIssues.filter(i => i.status !== 'Fixed').length;
+  const seoClicks = 1240, seoImpr = 18500;
+  /* Finance (Sec. 13) */
+  const receivables = pendingPayments();
+  const overdueInv = state.finance.invoices.filter(i => i.status === 'Overdue');
+  const overdueAmt = overdueInv.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  /* People (Sec. 13) */
+  const onLeaveN = state.employees.filter(e => e.status === 'On leave').length;
+  const pendingLeave = state.leaveRequests.filter(r => r.status === 'Pending').length;
+  /* Risk & approvals (Sec. 13) */
+  const pendingApprovals = pendingLeave + state.proposals.filter(p => p.status === 'Sent').length + postsAwaiting;
+  const blocked = overdue.length;
 
   // Weekly completed-tasks chart (last 7 days)
   const days = [];
@@ -269,16 +443,77 @@ function viewOverview() {
   ).join('');
 
   return '' +
-  '<div class="kpis">' +
-    '<div class="card kpi"><div class="label">Monthly retainer revenue</div><div class="value lime">' + fmtINR(revenue) + '</div><div class="sub">' + activeClients + ' active clients · amounts set on client records</div></div>' +
-    '<div class="card kpi"><div class="label">Tasks</div><div class="value">' + done.length + ' done</div><div class="sub">' + pending.length + ' pending · ' + overdue.length + ' overdue · ' + onTimeRate + '% on time</div></div>' +
-    '<div class="card kpi"><div class="label">Team working today</div><div class="value">' + working + ' / ' + state.employees.length + '</div><div class="sub">' + state.employees.filter(e => e.status === 'On leave').length + ' on leave · ' + state.employees.filter(e => e.status === 'Offline').length + ' offline</div></div>' +
-    '<div class="card kpi"><div class="label">Meta Ads (demo)</div><div class="value">' + fmtINR(spend) + '</div><div class="sub">' + leads + ' leads · ' + fmtINR(leads ? Math.round(spend / leads) : 0) + ' cost per lead</div></div>' +
-    '<div class="card kpi"><div class="label">Monthly team goals</div><div class="value">' + goalDoneMonth() + ' / ' + goalTargetMonth() + '</div><div class="sub">tasks completed this month vs team target</div></div>' +
+  '<div class="card" style="margin-bottom:18px"><h3>Executive actions</h3><div class="btnrow" style="margin-top:10px">' +
+    '<button class="btn" onclick="setView(\'alerts\')">Approve pending items (' + pendingApprovals + ')</button>' +
+    '<button class="btn ghost" onclick="openTaskForm()">Assign owner / create task</button>' +
+    '<button class="btn ghost" onclick="setView(\'reports\')">Export report</button>' +
+    '<button class="btn ghost" onclick="setView(\'crm\')">Review pipeline</button>' +
+  '</div><p class="muted" style="margin-top:8px">Every KPI below drills down — click the section buttons to open the source records.</p></div>' +
+  '<div class="cc-section"><h2>Business snapshot <span class="pill lime">Sec. 13</span></h2><div class="kpis">' +
+    '<div class="card kpi"><div class="label">Monthly recurring revenue</div><div class="value lime">' + fmtINR(revenue) + '</div><div class="sub">' + activeClients + ' active clients · retainers on client records</div></div>' +
+    '<div class="card kpi"><div class="label">Collected cash</div><div class="value">' + fmtINR(collected) + '</div><div class="sub">paid invoices + cash in hand ' + demoTag() + '</div></div>' +
+    '<div class="card kpi"><div class="label">Expenses (this month)</div><div class="value">' + fmtINR(expenses) + '</div><div class="sub">salaries, ads, tools, office ' + demoTag() + '</div></div>' +
+    '<div class="card kpi"><div class="label">Gross margin ' + demoTag() + '</div><div class="value" style="color:' + (margin >= 0 ? 'var(--green)' : 'var(--red)') + '">' + margin + '%</div><div class="sub">profit ' + fmtINR(profit) + ' on ' + fmtINR(revenue) + ' revenue · demo expenses, real-client amounts not set yet</div></div>' +
+  '</div></div>' +
+  '<div class="cc-section"><h2>Sales pipeline <span class="pill lime">Sec. 13</span></h2><div class="kpis">' +
+    '<div class="card kpi"><div class="label">New leads (7 days)</div><div class="value">' + newLeadsWeek + '</div><div class="sub">' + openLeads.length + ' open leads in pipeline</div></div>' +
+    '<div class="card kpi"><div class="label">Qualified pipeline</div><div class="value">' + fmtINR(pipeValue) + '</div><div class="sub">open deal value (not yet won / lost)</div></div>' +
+    '<div class="card kpi"><div class="label">Proposals sent</div><div class="value">' + proposalsSent + '</div><div class="sub">' + state.proposals.length + ' proposals total · win rate ' + winRate + '%</div></div>' +
+    '<div class="card kpi"><div class="label">Expected revenue</div><div class="value lime">' + fmtINR(Math.round(expectedRev)) + '</div><div class="sub">stage-weighted pipeline · ' + renewalsDue + ' renewal(s) due in 30 days</div></div>' +
+  '</div></div>' +
+  '<div class="grid2">' +
+    '<div class="card"><h3>Client portfolio</h3><div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Active clients</div><div class="svalue">' + activeClients + ' / ' + state.clients.length + '</div></div>' +
+      '<div class="stat"><div class="slabel">Churn risk</div><div class="svalue">' + atRiskClients.length + '</div></div>' +
+      '<div class="stat"><div class="slabel">Revenue concentration</div><div class="svalue">' + concentration + '%</div></div>' +
+    '</div><p class="muted">Top client is ' + concentration + '% of monthly revenue. At-risk = a client with overdue tasks.</p><div class="btnrow"><button class="btn ghost small" onclick="setView(\'clients\')">Open clients</button></div></div>' +
+    '<div class="card"><h3>Delivery operations</h3><div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Projects on track</div><div class="svalue">' + projectsOnTrack + ' / ' + state.projects.length + '</div></div>' +
+      '<div class="stat"><div class="slabel">Overdue deliverables</div><div class="svalue">' + overdue.length + '</div></div>' +
+      '<div class="stat"><div class="slabel">Utilization</div><div class="svalue">' + utilization + '%</div></div>' +
+      '<div class="stat"><div class="slabel">Capacity free</div><div class="svalue">' + freeSlots + ' slots</div></div>' +
+    '</div><p class="muted">' + done.length + ' tasks done · ' + pending.length + ' pending · ' + onTimeRate + '% on time.</p><div class="btnrow"><button class="btn ghost small" onclick="setView(\'projects\')">Open projects</button></div></div>' +
+  '</div>' +
+  '<div class="grid2">' +
+    '<div class="card"><h3>Campaign performance ' + demoTag() + '</h3><div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Media spend</div><div class="svalue">' + fmtINR(spend) + '</div></div>' +
+      '<div class="stat"><div class="slabel">Leads</div><div class="svalue">' + leads + '</div></div>' +
+      '<div class="stat"><div class="slabel">Conversions</div><div class="svalue">' + convs + '</div></div>' +
+      '<div class="stat"><div class="slabel">ROAS</div><div class="svalue">' + (spend ? (state.marketing.reduce((s, c) => s + c.revenue, 0) / state.marketing.reduce((s, c) => s + c.spend, 0)).toFixed(1) + 'x' : '—') + '</div></div>' +
+    '</div><p class="muted">Demo campaign numbers — connect Meta Ads for live spend and leads.</p><div class="btnrow"><button class="btn ghost small" onclick="setView(\'ads\')">Open paid ads</button></div></div>' +
+    '<div class="card"><h3>Social &amp; content</h3><div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Posts planned</div><div class="svalue">' + postsPlanned + '</div></div>' +
+      '<div class="stat"><div class="slabel">Awaiting approval</div><div class="svalue">' + postsAwaiting + '</div></div>' +
+      '<div class="stat"><div class="slabel">Scheduled</div><div class="svalue">' + postsScheduled + '</div></div>' +
+      '<div class="stat"><div class="slabel">Published</div><div class="svalue">' + postsPublished + '</div></div>' +
+    '</div><p class="muted">Published-post reach in demo data: ' + engagement.toLocaleString('en-IN') + ' (demo).</p><div class="btnrow"><button class="btn ghost small" onclick="setView(\'social\')">Open social calendar</button></div></div>' +
+  '</div>' +
+  '<div class="grid2">' +
+    '<div class="card"><h3>SEO performance ' + demoTag() + '</h3><div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Organic clicks</div><div class="svalue">' + seoClicks.toLocaleString('en-IN') + '</div></div>' +
+      '<div class="stat"><div class="slabel">Impressions</div><div class="svalue">' + seoImpr.toLocaleString('en-IN') + '</div></div>' +
+      '<div class="stat"><div class="slabel">Technical issues</div><div class="svalue">' + seoOpen + ' open</div></div>' +
+      '<div class="stat"><div class="slabel">Content shipped</div><div class="svalue">' + postsPublished + ' posts</div></div>' +
+    '</div><p class="muted">Clicks / impressions are demo samples — connect Search Console for live SEO data.</p><div class="btnrow"><button class="btn ghost small" onclick="setView(\'seo\')">Open SEO</button></div></div>' +
+    '<div class="card"><h3>Finance</h3><div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Receivables</div><div class="svalue">' + fmtINR(receivables) + '</div></div>' +
+      '<div class="stat"><div class="slabel">Overdue invoices</div><div class="svalue">' + overdueInv.length + ' · ' + fmtINR(overdueAmt) + '</div></div>' +
+      '<div class="stat"><div class="slabel">Cash flow</div><div class="svalue">' + fmtINR(state.finance.cashInHand) + '</div></div>' +
+      '<div class="stat"><div class="slabel">Profitability</div><div class="svalue">' + fmtINR(profit) + '</div></div>' +
+    '</div><p class="muted">Cash in hand is a demo figure. Profit = revenue − expenses.</p><div class="btnrow"><button class="btn ghost small" onclick="setView(\'finance\')">Open finance</button></div></div>' +
+  '</div>' +
+  '<div class="grid2">' +
+    '<div class="card"><h3>People</h3><div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Headcount</div><div class="svalue">' + state.employees.length + '</div></div>' +
+      '<div class="stat"><div class="slabel">Working today</div><div class="svalue">' + working + ' / ' + state.employees.length + '</div></div>' +
+      '<div class="stat"><div class="slabel">Utilization</div><div class="svalue">' + utilization + '%</div></div>' +
+      '<div class="stat"><div class="slabel">On leave</div><div class="svalue">' + onLeaveN + ' · ' + pendingLeave + ' request(s)</div></div>' +
+    '</div><div class="btnrow"><button class="btn ghost small" onclick="setView(\'hr\')">Open HR</button></div></div>' +
+    '<div class="card"><h3>Risk &amp; approvals</h3><ul class="feed">' + riskHtml + '</ul><p class="muted">' + pendingApprovals + ' item(s) waiting for your approval (leave, proposals, posts). ' + blocked + ' blocked/overdue item(s).</p><div class="btnrow"><button class="btn ghost small" onclick="setView(\'alerts\')">Open alerts center</button></div></div>' +
   '</div>' +
   '<div class="grid2">' +
     '<div class="card"><h3>Tasks completed — last 7 days</h3><div class="chart">' + chart + '</div><p class="muted">On time: ' + onTime + ' · Late: ' + late + ' (of ' + done.length + ' completed)</p></div>' +
-    '<div class="card"><h3>At risk — needs your attention</h3><ul class="feed">' + riskHtml + '</ul><div class="btnrow" style="margin-top:12px"><button class="btn ghost small" onclick="setView(\'alerts\')">Open alerts center</button></div></div>' +
+    '<div class="card"><h3>Monthly team goals</h3><div style="font-size:26px;font-weight:800">' + goalDoneMonth() + ' / ' + goalTargetMonth() + '</div><p class="muted">tasks completed this month vs team target</p><div class="btnrow" style="margin-top:12px"><button class="btn ghost small" onclick="setView(\'goals\')">Open goals</button></div></div>' +
   '</div>' +
   '<div class="grid2">' +
     '<div class="card"><h3>Upcoming deadlines</h3><ul class="feed">' + upcoming + '</ul><div class="btnrow" style="margin-top:12px"><button class="btn ghost small" onclick="setView(\'deadlines\')">View all deadlines</button></div></div>' +
@@ -535,38 +770,54 @@ function viewClientDetail(id) {
 }
 
 /* ---------------- Meta Ads ---------------- */
+/* ---------------- Paid Ads (Sec. 9) ---------------- */
 function viewAds() {
+  const budget = state.campaigns.reduce((s, c) => s + (c.budget || 0), 0);
   const spend = state.campaigns.reduce((s, c) => s + c.spend, 0);
   const reach = state.campaigns.reduce((s, c) => s + c.reach, 0);
   const leads = state.campaigns.reduce((s, c) => s + c.leads, 0);
-  const rows = state.campaigns.map(c =>
-    '<tr><td><b>' + esc(c.name) + '</b> ' + demoTag() + '</td><td>' + esc(c.platform) + '</td><td>' + fmtINR(c.spend) + '</td><td>' + c.reach.toLocaleString('en-IN') + '</td><td>' + c.leads + '</td><td>' + fmtINR(c.leads ? Math.round(c.spend / c.leads) : 0) + '</td><td>' + statusPill(c.status) + '</td></tr>'
-  ).join('');
+  const convs = state.campaigns.reduce((s, c) => s + (c.conversions || 0), 0);
+  const rows = state.campaigns.map(c => {
+    const cpa = c.conversions ? Math.round(c.spend / c.conversions) : 0;
+    const roas = c.spend ? (state.marketing.filter(m => m.name === c.name).reduce((s, m) => s + m.revenue, 0) / c.spend).toFixed(1) + 'x' : '—';
+    const over = c.budget && c.spend > c.budget;
+    return '<tr><td><b>' + esc(c.name) + '</b> ' + demoTag() + '</td><td>' + esc(c.platform) + '</td><td>' + fmtINR(c.budget || 0) + '</td><td>' + fmtINR(c.spend) + (over ? ' <span class="overdue">OVER BUDGET</span>' : '') + '</td><td>' + c.reach.toLocaleString('en-IN') + '</td><td>' + c.leads + '</td><td>' + (c.conversions || 0) + '</td><td>' + fmtINR(cpa) + '</td><td>' + roas + '</td><td>' + statusPill(c.status) + '</td><td><button class="btn danger small" onclick="deleteCampaign(\'' + c.id + '\')">Delete</button></td></tr>';
+  }).join('');
   return '' +
   '<div class="kpis">' +
-    '<div class="card kpi"><div class="label">Total spend ' + demoTag() + '</div><div class="value">' + fmtINR(spend) + '</div><div class="sub">across ' + state.campaigns.length + ' campaigns</div></div>' +
+    '<div class="card kpi"><div class="label">Total budget ' + demoTag() + '</div><div class="value">' + fmtINR(budget) + '</div><div class="sub">across ' + state.campaigns.length + ' campaigns</div></div>' +
+    '<div class="card kpi"><div class="label">Total spend ' + demoTag() + '</div><div class="value">' + fmtINR(spend) + '</div><div class="sub">' + Math.round(budget ? spend / budget * 100 : 0) + '% of budget used</div></div>' +
+    '<div class="card kpi"><div class="label">Leads / conversions ' + demoTag() + '</div><div class="value">' + leads + ' / ' + convs + '</div><div class="sub">cost per conversion ' + fmtINR(convs ? Math.round(spend / convs) : 0) + '</div></div>' +
     '<div class="card kpi"><div class="label">Total reach ' + demoTag() + '</div><div class="value">' + reach.toLocaleString('en-IN') + '</div><div class="sub">people reached</div></div>' +
-    '<div class="card kpi"><div class="label">Total leads ' + demoTag() + '</div><div class="value">' + leads + '</div><div class="sub">cost per lead ' + fmtINR(leads ? Math.round(spend / leads) : 0) + '</div></div>' +
   '</div>' +
-  '<div class="card"><h3>Campaigns</h3><table><tr><th>Campaign</th><th>Platform</th><th>Spend</th><th>Reach</th><th>Leads</th><th>Cost / lead</th><th>Status</th></tr>' + rows + '</table></div>' +
+  '<div class="card"><h3>Campaigns</h3><table><tr><th>Campaign</th><th>Platform</th><th>Budget</th><th>Spend</th><th>Reach</th><th>Leads</th><th>Conv.</th><th>CPA</th><th>ROAS</th><th>Status</th><th></th></tr>' + rows + '</table>' +
+  '<p class="muted">Media spend is shown separately from agency fees (Sec. 9). CPA = spend / conversions. ROAS uses attributed revenue from the Marketing page. Campaigns spending over their approved budget are flagged — budget changes need CEO approval.</p></div>' +
+  '<div class="card"><h3>Add a campaign</h3><form onsubmit="addCampaign(event)">' +
+  '<div class="form-grid"><div><label>Campaign name</label><input id="cp-name" required placeholder="e.g. LinkedIn Growth — Lead Gen"></div>' +
+  '<div><label>Platform</label><select id="cp-platform"><option>Meta</option><option>Google</option><option>LinkedIn</option></select></div></div>' +
+  '<div class="form-grid"><div><label>Budget (₹)</label><input id="cp-budget" type="number" min="0" required></div>' +
+  '<div><label>Spend so far (₹)</label><input id="cp-spend" type="number" min="0" value="0"></div></div>' +
+  '<div class="form-grid"><div><label>Reach</label><input id="cp-reach" type="number" min="0" value="0"></div>' +
+  '<div><label>Leads</label><input id="cp-leads" type="number" min="0" value="0"></div></div>' +
+  '<div class="form-grid"><div><label>Conversions</label><input id="cp-conv" type="number" min="0" value="0"></div>' +
+  '<div><label>Status</label><select id="cp-status"><option>Active</option><option>Paused</option></select></div></div>' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add campaign</button></div></form></div>' +
   '<div class="card"><h3>Connect Meta Ads</h3><p class="muted">Every number on this page is demo data. Real spend, reach and leads appear only after you connect your Meta Business account — Meta does not share ad data without an official login.</p><button class="btn" onclick="openAdsConnect()">How to connect Meta Ads</button></div>';
 }
 
-/* ---------------- Connections ---------------- */
-const DEMO_STATS = { WhatsApp: { f: '—', p: '—' }, Instagram: { f: '12,400', p: '9' }, Facebook: { f: '8,900', p: '6' }, LinkedIn: { f: '3,100', p: '4' }, Threads: { f: '2,300', p: '5' } };
+/* ---------------- Connections — Raj's real accounts (Sec. 6) ---------------- */
 function viewConnections() {
-  const rows = state.connections.map(c => {
-    const st = DEMO_STATS[c.platform] || { f: '—', p: '—' };
-    const connected = c.status !== 'Not connected';
-    return '<div class="conn-row"><div class="conn-icon">' + esc(c.platform[0]) + '</div>' +
-      '<div class="grow"><b>' + esc(c.platform) + '</b> ' + (c.handle ? '<span class="muted">' + esc(c.handle) + '</span>' : '<span class="muted">no account linked</span>') +
-      '<div class="muted">Followers: ' + st.f + ' ' + demoTag() + ' · Posts this week: ' + st.p + ' ' + demoTag() + '</div></div>' +
-      '<div>' + (connected ? '<span class="pill green">' + esc(c.status) + '</span>' : '<span class="pill grey">Not connected</span>') + '</div>' +
-      '<button class="btn ' + (connected ? 'ghost' : '') + ' small" onclick="openConnectModal(\'' + c.id + '\')">' + (connected ? 'Manage' : 'Connect') + '</button></div>';
-  }).join('');
+  const rows = state.connections.map(c =>
+    '<div class="conn-row"><div class="conn-icon">' + esc(c.platform[0]) + '</div>' +
+      '<div class="grow"><b>' + esc(c.platform) + '</b> <span class="muted">' + esc(c.handle) + '</span>' +
+      '<div class="muted"><a href="' + esc(c.url) + '" target="_blank" rel="noopener" style="color:var(--lime)">' + esc(c.url) + '</a></div></div>' +
+      '<div><span class="pill green">' + esc(c.status) + '</span></div>' +
+      '<a class="btn small" href="' + esc(c.url) + '" target="_blank" rel="noopener">Open ↗</a></div>'
+  ).join('');
   return '' +
-  '<div class="card">' + rows + '</div>' +
-  '<div class="note"><b>Honest note:</b> real live numbers (followers, posts, messages) need the actual account login through the official connection for each platform. Until then, the stats above are clearly labeled demo samples. Connecting is a manual step you do once per account — the app has the connection panels ready.</div>';
+  '<div class="card"><h3>Connected accounts — Synced from GitHub profile</h3>' + rows + '</div>' +
+  '<div class="card"><h3>Quick links</h3>' + socialGridHTML() + '</div>' +
+  '<div class="note"><b>Honest note:</b> these are Raj’s real profile links from his GitHub “Let’s Connect” section. Live follower counts and post stats are not shown here — real live numbers need the official login for each platform, and this static demo does not pull them. If a link changes on the GitHub profile, update it here in Settings → Connections.</div>';
 }
 
 /* ---------------- Deadlines ---------------- */
@@ -668,7 +919,7 @@ function viewPerformance() {
 
 /* ---------------- Workload ---------------- */
 function viewWorkload() {
-  const CAP = 5;
+  const CAP = (state.settings && state.settings.capacity) || 5;
   const rows = state.employees.map(e => {
     const open = openTasksOf(e.id).length;
     const pct = Math.min(100, Math.round(open / CAP * 100));
@@ -717,13 +968,34 @@ function addManualActivity(ev) {
 }
 
 /* ---------------- Settings ---------------- */
+/* ---------------- Settings (Sec. 2 roles, Sec. 20 governance) ---------------- */
+const ROLES = [
+  ['CEO / Founder', 'Agency-wide KPIs, client portfolio, profitability, approvals, strategic reports.'],
+  ['Agency Admin', 'Users, roles, workspace configuration, templates, integrations.'],
+  ['Account Manager', 'Assigned clients, briefs, communication, timelines, approvals, renewals.'],
+  ['Project Manager', 'Project plans, tasks, workload, deadlines, delivery quality.'],
+  ['Social Media Manager', 'Social calendars, account data, post workflows, publishing.'],
+  ['Content Strategist', 'Research, content plans, briefs, copy review, performance insights.'],
+  ['Designer / Video Editor', 'Creative briefs, assets, revisions, final files.'],
+  ['SEO Specialist', 'Audits, keywords, technical tasks, rankings, content optimization.'],
+  ['Ads Specialist', 'Ad accounts, campaigns, budgets, performance, experiments.'],
+  ['Sales Executive', 'Leads, qualification, calls, proposals, follow-ups.'],
+  ['Finance Manager', 'Invoices, expenses, collections, budgets, profitability.'],
+  ['HR / Operations', 'Employee records, attendance, leave, recruitment, policies.'],
+  ['Client', 'Own contracts, briefs, content approvals, reports, invoices, requests.'],
+];
 function viewSettings() {
+  const roleRows = ROLES.map(r => '<tr><td><b>' + esc(r[0]) + '</b></td><td>' + esc(r[1]) + '</td></tr>').join('');
   return '' +
   '<div class="card"><h3>Agency settings</h3><form onsubmit="saveSettings(event)">' +
   '<label>Agency name</label><input id="set-agency" value="' + esc(state.settings.agencyName) + '">' +
   '<label>CEO name</label><input id="set-ceo" value="' + esc(state.settings.ceoName) + '">' +
-  '<label>Currency</label><select id="set-cur"><option' + (state.settings.currency === '₹' ? ' selected' : '') + '>₹</option><option' + (state.settings.currency === '$' ? ' selected' : '') + '>$</option><option' + (state.settings.currency === '€' ? ' selected' : '') + '>€</option></select>' +
+  '<div class="form-grid"><div><label>Currency</label><select id="set-cur"><option' + (state.settings.currency === '₹' ? ' selected' : '') + '>₹</option><option' + (state.settings.currency === '$' ? ' selected' : '') + '>$</option><option' + (state.settings.currency === '€' ? ' selected' : '') + '>€</option></select></div>' +
+  '<div><label>Team capacity — open tasks per person</label><input id="set-cap" type="number" min="1" max="20" value="' + ((state.settings && state.settings.capacity) || 5) + '"></div></div>' +
   '<div class="btnrow" style="margin-top:14px"><button class="btn" type="submit">Save settings</button></div></form></div>' +
+  '<div class="card"><h3>Roles &amp; permissions — Sec. 2</h3><p class="muted">Role-based access: employees see only assigned clients unless their role requires more. Clients see only their own workspace. Financial exports and budget changes need explicit permission.</p><table style="margin-top:10px"><tr><th>Role</th><th>Responsibilities and access</th></tr>' + roleRows + '</table></div>' +
+  '<div class="card"><h3>Login &amp; security</h3><p class="muted">This dashboard uses a demo login stored only in this browser (localStorage). It is not real server security — anyone with access to this browser can open the app. ' + (getCreds() ? 'A login is set for this browser.' : 'No login is set yet — you will be asked to create one on your next visit.') + '</p>' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn ghost" onclick="logout()">Logout</button><button class="btn danger" onclick="resetLogin()">Reset login (clear saved credentials)</button></div></div>' +
   '<div class="card"><h3>Data</h3><p class="muted">Everything is stored in this browser (localStorage). Demo employees, clients, campaigns and salary figures are marked DEMO — replace them with real records from the Team, Clients and Tasks pages. Real Meta Ads and social numbers need the official account connections on the Meta Ads and Connections pages.</p>' +
   '<div class="btnrow" style="margin-top:12px"><button class="btn danger" onclick="resetDemo()">Reset demo data</button></div></div>';
 }
@@ -732,6 +1004,7 @@ function saveSettings(ev) {
   state.settings.agencyName = $('#set-agency').value.trim() || 'My Agency';
   state.settings.ceoName = $('#set-ceo').value.trim() || 'CEO';
   state.settings.currency = $('#set-cur').value;
+  state.settings.capacity = Math.max(1, Math.min(20, parseInt($('#set-cap').value, 10) || 5));
   save(); render();
 }
 function resetDemo() {
@@ -747,10 +1020,12 @@ function openTaskForm(id) {
   const t = id ? state.tasks.find(x => x.id === id) : null;
   const empOpts = state.employees.map(e => '<option value="' + e.id + '"' + (t && t.assigneeId === e.id ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
   const cliOpts = '<option value="">No client</option>' + state.clients.map(c => '<option value="' + c.id + '"' + (t && t.clientId === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+  const projOpts = '<option value="">No project</option>' + state.projects.map(p => '<option value="' + p.id + '"' + (t && t.projectId === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
   openModal('<h2>' + (t ? 'Edit task' : 'New task') + '</h2><form onsubmit="saveTask(event,\'' + (id || '') + '\')">' +
     '<label>Title</label><input id="f-title" required value="' + esc(t ? t.title : '') + '">' +
     '<div class="form-grid"><div><label>Assign to</label><select id="f-assignee">' + empOpts + '</select></div>' +
     '<div><label>Client</label><select id="f-client">' + cliOpts + '</select></div></div>' +
+    '<label>Project</label><select id="f-project">' + projOpts + '</select>' +
     '<div class="form-grid"><div><label>Deadline</label><input id="f-deadline" type="date" value="' + (t ? t.deadline : '') + '"></div>' +
     '<div><label>Priority</label><select id="f-priority"><option' + (t && t.priority === 'High' ? ' selected' : '') + '>High</option><option' + (!t || t.priority === 'Medium' ? ' selected' : '') + '>Medium</option><option' + (t && t.priority === 'Low' ? ' selected' : '') + '>Low</option></select></div></div>' +
     '<label>Status</label><select id="f-status"><option value="todo"' + (!t || t.status === 'todo' ? ' selected' : '') + '>To Do</option><option value="doing"' + (t && t.status === 'doing' ? ' selected' : '') + '>Doing</option><option value="done"' + (t && t.status === 'done' ? ' selected' : '') + '>Done</option></select>' +
@@ -760,17 +1035,18 @@ function saveTask(ev, id) {
   ev.preventDefault();
   const title = $('#f-title').value.trim();
   const assigneeId = $('#f-assignee').value, clientId = $('#f-client').value;
+  const projectId = $('#f-project') ? $('#f-project').value : '';
   const deadline = $('#f-deadline').value, priority = $('#f-priority').value, status = $('#f-status').value;
   const e = empById(assigneeId);
   if (id) {
     const t = state.tasks.find(x => x.id === id); if (!t) return;
     const wasDone = t.status === 'done';
-    Object.assign(t, { title, assigneeId, clientId, deadline, priority, status });
+    Object.assign(t, { title, assigneeId, clientId, projectId, deadline, priority, status });
     if (status === 'done' && !wasDone) t.completedAt = todayISO();
     if (status !== 'done') t.completedAt = '';
     logActivity('Task updated: “' + title + '” (' + (e ? e.name : '') + ').');
   } else {
-    state.tasks.unshift({ id: uid(), title, assigneeId, clientId, deadline, priority, status, completedAt: status === 'done' ? todayISO() : '', createdAt: todayISO() });
+    state.tasks.unshift({ id: uid(), title, assigneeId, clientId, projectId, deadline, priority, status, completedAt: status === 'done' ? todayISO() : '', createdAt: todayISO() });
     logActivity('New task assigned to ' + (e ? e.name : 'teammate') + ': “' + title + '”.');
   }
   save(); closeModal(); render();
@@ -832,29 +1108,11 @@ function saveClient(ev, id) {
 
 function openConnectModal(id) {
   const c = state.connections.find(x => x.id === id); if (!c) return;
-  const connected = c.status !== 'Not connected';
   openModal('<h2>' + esc(c.platform) + '</h2>' +
-    '<p class="muted">Status: <b>' + esc(c.status) + '</b></p>' +
-    '<div class="note"><b>How real connection works:</b> live followers, posts and messages come from the official ' + esc(c.platform) + ' login / Business account. Connect it once through the official flow — this dashboard only stores the connection, it never asks for your password here.</div>' +
-    '<label>Account handle / number</label><input id="cn-handle" value="' + esc(c.handle || '') + '" placeholder="e.g. @youragency">' +
-    '<div class="btnrow" style="margin-top:14px">' +
-    (connected
-      ? '<button class="btn danger" onclick="disconnectAccount(\'' + c.id + '\')">Disconnect (demo)</button>'
-      : '<button class="btn" onclick="markConnected(\'' + c.id + '\')">Mark as connected (demo)</button>') +
-    '<button class="btn ghost" onclick="closeModal()">Close</button></div>');
-}
-function markConnected(id) {
-  const c = state.connections.find(x => x.id === id); if (!c) return;
-  c.handle = $('#cn-handle').value.trim();
-  c.status = 'Connected (demo)';
-  logActivity(c.platform + ' account marked connected (demo).');
-  save(); closeModal(); render();
-}
-function disconnectAccount(id) {
-  const c = state.connections.find(x => x.id === id); if (!c) return;
-  c.status = 'Not connected';
-  logActivity(c.platform + ' account disconnected.');
-  save(); closeModal(); render();
+    '<p class="muted">Handle: <b>' + esc(c.handle) + '</b><br>Status: <b>' + esc(c.status) + '</b></p>' +
+    '<p><a href="' + esc(c.url) + '" target="_blank" rel="noopener" style="color:var(--lime)">' + esc(c.url) + '</a></p>' +
+    '<div class="note"><b>Synced from GitHub profile:</b> this is Raj’s real ' + esc(c.platform) + ' link. Live stats are not pulled by this static demo — open the profile to see live numbers.</div>' +
+    '<div class="btnrow"><a class="btn" href="' + esc(c.url) + '" target="_blank" rel="noopener">Open profile ↗</a><button class="btn ghost" onclick="closeModal()">Close</button></div>');
 }
 
 function openAdsConnect() {
@@ -894,12 +1152,520 @@ function saveAnnouncement(ev) {
   save(); closeModal(); render();
 }
 
+/* ---------------- Sales & Proposals (Sec. 10) ---------------- */
+const PROPOSAL_STATUSES = ['Draft', 'Sent', 'Negotiation', 'Accepted', 'Rejected'];
+function viewProposals() {
+  const sent = state.proposals.filter(p => ['Sent', 'Negotiation'].includes(p.status));
+  const accepted = state.proposals.filter(p => p.status === 'Accepted');
+  const accVal = accepted.reduce((s, p) => s + (Number(p.fee) || 0), 0);
+  const rows = state.proposals.map(p => {
+    const idx = PROPOSAL_STATUSES.indexOf(p.status);
+    const exp = p.validUntil && p.validUntil < todayISO() && !['Accepted', 'Rejected'].includes(p.status);
+    return '<tr><td><b>' + esc(p.title) + '</b><div class="muted">' + esc(p.leadName) + (p.clientId ? ' · ' + esc((clientById(p.clientId) || {}).name || '') : '') + '</div></td>' +
+      '<td>' + esc(p.scope) + '</td><td>' + fmtINR(p.fee) + '</td>' +
+      '<td>' + statusPill(p.status === 'Accepted' ? 'Done' : p.status === 'Rejected' ? 'Paused' : 'To Do').replace(/Done|Paused|To Do/g, m => p.status) + '</td>' +
+      '<td>' + fmtDate(p.validUntil) + (exp ? ' <span class="overdue">EXPIRED</span>' : '') + '</td><td>v' + p.version + '</td>' +
+      '<td><div class="btnrow">' +
+      (idx < 3 ? '<button class="btn small" onclick="setProposalStatus(\'' + p.id + '\',\'' + PROPOSAL_STATUSES[idx + 1] + '\')">Advance →</button>' : '') +
+      (p.status !== 'Accepted' && p.status !== 'Rejected' ? '<button class="btn small" onclick="setProposalStatus(\'' + p.id + '\',\'Accepted\')">Accept</button><button class="btn danger small" onclick="setProposalStatus(\'' + p.id + '\',\'Rejected\')">Reject</button>' : '') +
+      '<button class="btn danger small" onclick="deleteProposal(\'' + p.id + '\')">Delete</button></div></td></tr>';
+  }).join('');
+  return '' +
+  '<div class="kpis">' +
+    '<div class="card kpi"><div class="label">Proposals</div><div class="value">' + state.proposals.length + '</div><div class="sub">' + sent.length + ' sent / in negotiation</div></div>' +
+    '<div class="card kpi"><div class="label">Accepted value</div><div class="value lime">' + fmtINR(accVal) + '</div><div class="sub">' + accepted.length + ' accepted proposal(s)</div></div>' +
+    '<div class="card kpi"><div class="label">Open proposal value</div><div class="value">' + fmtINR(sent.reduce((s, p) => s + (Number(p.fee) || 0), 0)) + '</div><div class="sub">sent + negotiation, not yet decided</div></div>' +
+  '</div>' +
+  '<div class="card"><h3>Proposals ' + demoTag() + '</h3><table><tr><th>Proposal</th><th>Scope</th><th>Fee</th><th>Status</th><th>Valid until</th><th>Ver.</th><th></th></tr>' + rows + '</table>' +
+  '<p class="muted">A proposal carries scope, deliverables, fees, timeline and validity (Sec. 10). Accepting one starts onboarding — add the client on the Clients page and a project on the Projects page.</p></div>' +
+  '<div class="card"><h3>New proposal</h3><form onsubmit="addProposal(event)">' +
+  '<div class="form-grid"><div><label>Lead / business</label><input id="pr-lead" required placeholder="e.g. Sharma Jewellers"></div>' +
+  '<div><label>Proposal title</label><input id="pr-title" required placeholder="e.g. Meta Ads — festive campaign"></div></div>' +
+  '<label>Scope &amp; deliverables</label><input id="pr-scope" required placeholder="e.g. Ad account setup, 3 campaigns, creative, weekly optimisation">' +
+  '<div class="form-grid"><div><label>Fee (₹)</label><input id="pr-fee" type="number" min="0" required></div>' +
+  '<div><label>Valid until</label><input id="pr-valid" type="date" required value="' + addDays(14) + '"></div></div>' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add proposal</button></div></form></div>';
+}
+function addProposal(ev) {
+  ev.preventDefault();
+  state.proposals.unshift({ id: uid(), leadName: $('#pr-lead').value.trim(), clientId: '', title: $('#pr-title').value.trim(), scope: $('#pr-scope').value.trim(), fee: Number($('#pr-fee').value) || 0, status: 'Draft', validUntil: $('#pr-valid').value, version: 1, createdAt: todayISO(), demo: false });
+  logActivity('New proposal added: ' + $('#pr-title').value.trim() + ' (' + fmtINR($('#pr-fee').value) + ').');
+  save(); render();
+}
+function setProposalStatus(id, status) {
+  const p = state.proposals.find(x => x.id === id); if (!p) return;
+  p.status = status;
+  if (status !== 'Draft') p.version = (p.version || 1);
+  logActivity('Proposal “' + p.title + '” moved to ' + status + '.');
+  save(); render();
+}
+function deleteProposal(id) {
+  const p = state.proposals.find(x => x.id === id); if (!p) return;
+  if (!confirm('Delete proposal “' + p.title + '”?')) return;
+  state.proposals = state.proposals.filter(x => x.id !== id);
+  logActivity('Proposal deleted: “' + p.title + '”.');
+  save(); render();
+}
+
+/* ---------------- Service Catalog (Sec. 5) ---------------- */
+function viewCatalog() {
+  const cards = state.services.map(s =>
+    '<div class="card"><h3>' + esc(s.name) + ' ' + (s.demo ? '<span class="pill amber">DEMO</span>' : '') + '</h3>' +
+    '<div style="margin:8px 0">' + statusPill(s.type === 'Retainer' ? 'Active' : 'To Do').replace(/Active|To Do/g, m => s.type) + ' <b style="font-size:18px">' + fmtINR(s.price) + '</b> <span class="muted">' + esc(s.unit) + '</span></div>' +
+    '<p class="muted"><b style="color:var(--text)">Deliverables:</b> ' + esc(s.deliverables) + '</p>' +
+    '<p class="muted"><b style="color:var(--text)">SLA:</b> ' + esc(s.sla) + '</p>' +
+    '<div class="btnrow" style="margin-top:10px"><button class="btn danger small" onclick="deleteService(\'' + s.id + '\')">Delete</button></div></div>'
+  ).join('');
+  return '' +
+  '<div class="grid2">' + cards + '</div>' +
+  '<div class="card"><h3>Add a service / package</h3><form onsubmit="addService(event)">' +
+  '<div class="form-grid"><div><label>Service name</label><input id="sv-name" required placeholder="e.g. LinkedIn Growth Retainer"></div>' +
+  '<div><label>Type</label><select id="sv-type"><option>Retainer</option><option>Package</option><option>One-time</option></select></div></div>' +
+  '<div class="form-grid"><div><label>Price (₹)</label><input id="sv-price" type="number" min="0" required></div>' +
+  '<div><label>Unit</label><select id="sv-unit"><option>/mo</option><option>one-time</option></select></div></div>' +
+  '<label>Deliverables</label><input id="sv-del" required placeholder="e.g. 12 posts/mo, 2 carousels, monthly report">' +
+  '<label>SLA</label><input id="sv-sla" placeholder="e.g. Posts delivered by Friday each week">' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add service</button></div></form>' +
+  '<p class="muted">Every service is sold as a configurable package or custom scope (Sec. 5). A signed scope generates the project, tasks and deliverables on the Projects page.</p></div>';
+}
+function addService(ev) {
+  ev.preventDefault();
+  state.services.push({ id: uid(), name: $('#sv-name').value.trim(), type: $('#sv-type').value, price: Number($('#sv-price').value) || 0, unit: $('#sv-unit').value, deliverables: $('#sv-del').value.trim(), sla: $('#sv-sla').value.trim(), demo: false });
+  logActivity('Service added to catalog: ' + $('#sv-name').value.trim() + '.');
+  save(); render();
+}
+function deleteService(id) {
+  const s = state.services.find(x => x.id === id); if (!s) return;
+  if (!confirm('Delete service “' + s.name + '”?')) return;
+  state.services = state.services.filter(x => x.id !== id);
+  save(); render();
+}
+
+/* ---------------- Projects (Sec. 5) ---------------- */
+function viewProjects() {
+  const onTrack = state.projects.filter(p => p.status === 'On track').length;
+  const atRisk = state.projects.filter(p => p.status === 'At risk' || p.status === 'Delayed').length;
+  const avgProg = state.projects.length ? Math.round(state.projects.reduce((s, p) => s + projectProgress(p).pct, 0) / state.projects.length) : 0;
+  const rows = state.projects.map(p => {
+    const c = clientById(p.clientId), o = empById(p.ownerId);
+    const pr = projectProgress(p);
+    const od = p.dueDate && p.dueDate < todayISO() && p.status !== 'Completed';
+    return '<tr><td><b>' + esc(p.name) + '</b>' + (p.demo ? ' <span class="pill amber">DEMO</span>' : '') + '<div class="muted">' + esc(p.type) + ' · since ' + fmtDate(p.startDate) + '</div></td>' +
+      '<td>' + esc(c ? c.name : '—') + '</td><td>' + esc(o ? o.name : 'Unassigned') + '</td>' +
+      '<td>' + projectStatusPill(p.status) + '</td>' +
+      '<td>' + fmtDate(p.dueDate) + (od ? ' <span class="overdue">OVERDUE</span>' : '') + '</td>' +
+      '<td style="min-width:150px"><div class="progress"><i style="width:' + pr.pct + '%"></i></div><span class="muted">' + pr.done + '/' + pr.total + ' tasks · ' + pr.pct + '%</span></td>' +
+      '<td><div class="btnrow"><button class="btn ghost small" onclick="openProjectForm(\'' + p.id + '\')">Edit</button><button class="btn danger small" onclick="deleteProject(\'' + p.id + '\')">Delete</button></div></td></tr>';
+  }).join('');
+  return '' +
+  '<div class="kpis">' +
+    '<div class="card kpi"><div class="label">Projects</div><div class="value">' + state.projects.length + '</div><div class="sub">' + onTrack + ' on track · ' + atRisk + ' at risk / delayed</div></div>' +
+    '<div class="card kpi"><div class="label">Average progress</div><div class="value lime">' + avgProg + '%</div><div class="sub">from linked tasks done / total</div></div>' +
+    '<div class="card kpi"><div class="label">Overdue projects</div><div class="value">' + state.projects.filter(p => p.dueDate && p.dueDate < todayISO() && p.status !== 'Completed').length + '</div><div class="sub">past due date and not completed</div></div>' +
+  '</div>' +
+  '<div class="toolbar"><span class="muted">Progress is computed from the project’s linked tasks — finish tasks and the bar moves.</span><span style="flex:1"></span><button class="btn" onclick="openProjectForm()">+ New project</button></div>' +
+  '<div class="card"><table><tr><th>Project</th><th>Client</th><th>Owner</th><th>Status</th><th>Due date</th><th>Progress</th><th></th></tr>' + rows + '</table></div>';
+}
+function openProjectForm(id) {
+  const p = id ? state.projects.find(x => x.id === id) : null;
+  const cliOpts = state.clients.map(c => '<option value="' + c.id + '"' + (p && p.clientId === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+  const ownOpts = state.employees.map(e => '<option value="' + e.id + '"' + (p && p.ownerId === e.id ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('');
+  openModal('<h2>' + (p ? 'Edit project' : 'New project') + '</h2><form onsubmit="saveProject(event,\'' + (id || '') + '\')">' +
+    '<label>Project name</label><input id="pj-name" required value="' + esc(p ? p.name : '') + '" placeholder="e.g. LinkedIn Growth — Client">' +
+    '<div class="form-grid"><div><label>Client</label><select id="pj-client">' + cliOpts + '</select></div>' +
+    '<div><label>Owner</label><select id="pj-owner">' + ownOpts + '</select></div></div>' +
+    '<div class="form-grid"><div><label>Type</label><select id="pj-type"><option' + (p && p.type === 'Retainer' ? ' selected' : '') + '>Retainer</option><option' + (p && p.type === 'Campaign' ? ' selected' : '') + '>Campaign</option><option' + (p && p.type === 'One-time' ? ' selected' : '') + '>One-time</option></select></div>' +
+    '<div><label>Status</label><select id="pj-status"><option' + (!p || p.status === 'On track' ? ' selected' : '') + '>On track</option><option' + (p && p.status === 'At risk' ? ' selected' : '') + '>At risk</option><option' + (p && p.status === 'Delayed' ? ' selected' : '') + '>Delayed</option><option' + (p && p.status === 'On hold' ? ' selected' : '') + '>On hold</option><option' + (p && p.status === 'Completed' ? ' selected' : '') + '>Completed</option></select></div></div>' +
+    '<div class="form-grid"><div><label>Start date</label><input id="pj-start" type="date" value="' + (p ? p.startDate : todayISO()) + '"></div>' +
+    '<div><label>Due date</label><input id="pj-due" type="date" value="' + (p ? p.dueDate : addDays(30)) + '"></div></div>' +
+    '<div class="btnrow" style="margin-top:14px"><button class="btn" type="submit">Save project</button><button class="btn ghost" type="button" onclick="closeModal()">Cancel</button></div></form>');
+}
+function saveProject(ev, id) {
+  ev.preventDefault();
+  const data = { name: $('#pj-name').value.trim(), clientId: $('#pj-client').value, ownerId: $('#pj-owner').value, type: $('#pj-type').value, status: $('#pj-status').value, startDate: $('#pj-start').value, dueDate: $('#pj-due').value };
+  if (id) { const p = state.projects.find(x => x.id === id); if (p) { Object.assign(p, data); logActivity('Project updated: ' + p.name + '.'); } }
+  else { state.projects.push(Object.assign({ id: uid(), demo: false }, data)); logActivity('New project added: ' + data.name + '.'); }
+  save(); closeModal(); render();
+}
+function deleteProject(id) {
+  const p = state.projects.find(x => x.id === id); if (!p) return;
+  if (!confirm('Delete project “' + p.name + '”? Its tasks will stay but become unlinked.')) return;
+  state.tasks.forEach(t => { if (t.projectId === id) t.projectId = ''; });
+  state.projects = state.projects.filter(x => x.id !== id);
+  logActivity('Project deleted: ' + p.name + '.');
+  save(); render();
+}
+
+/* ---------------- Social Calendar (Sec. 6) ---------------- */
+function viewSocial() {
+  const planned = state.posts.filter(p => ['Draft', 'Review'].includes(p.status)).length;
+  const awaiting = state.posts.filter(p => p.status === 'Review').length;
+  const scheduled = state.posts.filter(p => p.status === 'Scheduled').length;
+  const published = state.posts.filter(p => p.status === 'Published').length;
+  const kanban = POST_STATUSES.map(s => {
+    const items = state.posts.filter(p => p.status === s).sort((a, b) => a.date.localeCompare(b.date));
+    const cards = items.map(p => {
+      const c = clientById(p.clientId);
+      const idx = POST_STATUSES.indexOf(p.status);
+      return '<div class="kcard"><b>' + esc(p.caption) + '</b><div class="muted">' + esc(c ? c.name : '—') + ' · ' + esc(p.platform) + ' · ' + esc(p.format) + '</div><div class="muted">' + fmtDate(p.date) + (p.reach ? ' · reach ' + p.reach.toLocaleString('en-IN') : '') + (p.demo ? ' · DEMO' : '') + '</div><div class="btnrow">' +
+        (idx < 4 ? '<button class="btn small" onclick="setPostStatus(\'' + p.id + '\',\'' + POST_STATUSES[idx + 1] + '\')">' + (p.status === 'Approved' ? 'Schedule →' : p.status === 'Scheduled' ? 'Publish ✓' : 'Advance →') + '</button>' : '') +
+        '<button class="btn danger small" onclick="deletePost(\'' + p.id + '\')">Delete</button></div></div>';
+    }).join('') || '<p class="empty">—</p>';
+    return '<div class="kcol"><h3>' + esc(s) + ' <span class="count">' + items.length + '</span></h3>' + cards + '</div>';
+  }).join('');
+  const cliOpts = state.clients.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+  return '' +
+  '<div class="kpis">' +
+    '<div class="card kpi"><div class="label">Posts planned</div><div class="value">' + planned + '</div><div class="sub">draft + in review</div></div>' +
+    '<div class="card kpi"><div class="label">Awaiting approval</div><div class="value">' + awaiting + '</div><div class="sub">in client / internal review</div></div>' +
+    '<div class="card kpi"><div class="label">Scheduled</div><div class="value">' + scheduled + '</div><div class="sub">queued to publish</div></div>' +
+    '<div class="card kpi"><div class="label">Published</div><div class="value lime">' + published + '</div><div class="sub">live posts in this calendar</div></div>' +
+  '</div>' +
+  '<div class="card"><h3>Post workflow — Sec. 6</h3><div class="flow" style="margin-top:10px">' + POST_STATUSES.map(s => '<span class="fstep">' + esc(s) + '</span>').join('<span class="farrow">→</span>') + '</div><p class="muted" style="margin-top:10px">Draft → Review → Approved → Scheduled → Published. Approval happens in the Client Portal too — a client approving a post moves it to Approved.</p></div>' +
+  '<div class="kanban">' + kanban + '</div>' +
+  '<div class="card"><h3>Plan a post</h3><form onsubmit="addPost(event)">' +
+  '<div class="form-grid"><div><label>Client</label><select id="po-client">' + cliOpts + '</select></div>' +
+  '<div><label>Platform</label><select id="po-platform"><option>LinkedIn</option><option>Instagram</option><option>Facebook</option><option>X</option></select></div></div>' +
+  '<div class="form-grid"><div><label>Format</label><select id="po-format"><option>Text</option><option>Carousel</option><option>Reel</option><option>Static</option><option>Story</option><option>Video</option></select></div>' +
+  '<div><label>Date</label><input id="po-date" type="date" required value="' + addDays(1) + '"></div></div>' +
+  '<label>Caption / idea</label><input id="po-caption" required placeholder="e.g. Carousel — 5 LinkedIn mistakes founders make">' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add to calendar</button></div></form></div>';
+}
+function addPost(ev) {
+  ev.preventDefault();
+  state.posts.unshift({ id: uid(), clientId: $('#po-client').value, platform: $('#po-platform').value, format: $('#po-format').value, caption: $('#po-caption').value.trim(), date: $('#po-date').value, status: 'Draft', reach: null, demo: false });
+  logActivity('Post planned: ' + $('#po-caption').value.trim().slice(0, 50) + '.');
+  save(); render();
+}
+function setPostStatus(id, status) {
+  const p = state.posts.find(x => x.id === id); if (!p) return;
+  p.status = status;
+  logActivity('Post “' + p.caption.slice(0, 40) + '” moved to ' + status + '.');
+  save(); render();
+}
+function deletePost(id) {
+  const p = state.posts.find(x => x.id === id); if (!p) return;
+  if (!confirm('Delete post “' + p.caption.slice(0, 40) + '”?')) return;
+  state.posts = state.posts.filter(x => x.id !== id);
+  save(); render();
+}
+
+/* ---------------- Content Studio (Sec. 7) ---------------- */
+function viewContent() {
+  const inReview = state.briefs.filter(b => b.status === 'Review' || b.status === 'Revisions').length;
+  const rows = state.briefs.map(b => {
+    const c = clientById(b.clientId), o = empById(b.ownerId);
+    const idx = BRIEF_STATUSES.indexOf(b.status);
+    return '<tr><td><b>' + esc(b.title) + '</b>' + (b.demo ? ' <span class="pill amber">DEMO</span>' : '') + '</td><td>' + esc(c ? c.name : '—') + '</td><td>' + esc(b.type) + '</td><td>' + esc(o ? o.name : '—') + '</td>' +
+      '<td>' + statusPill(b.status === 'Approved' || b.status === 'Delivered' ? 'Done' : b.status === 'Revisions' ? 'Paused' : 'To Do').replace(/Done|Paused|To Do/g, m => b.status) + '</td>' +
+      '<td>' + b.revisions + ' round(s)</td><td>' + fmtDate(b.due) + '</td>' +
+      '<td><div class="btnrow">' + (idx < 5 ? '<button class="btn small" onclick="setBriefStatus(\'' + b.id + '\',\'' + BRIEF_STATUSES[idx + 1] + '\')">Advance →</button>' : '') +
+      '<button class="btn ghost small" onclick="addRevision(\'' + b.id + '\')">+ Revision</button></div></td></tr>';
+  }).join('');
+  const cliOpts = state.clients.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+  const ownOpts = state.employees.map(e => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('');
+  return '' +
+  '<div class="kpis">' +
+    '<div class="card kpi"><div class="label">Briefs</div><div class="value">' + state.briefs.length + '</div><div class="sub">' + inReview + ' in review / revisions</div></div>' +
+    '<div class="card kpi"><div class="label">Approved / delivered</div><div class="value lime">' + state.briefs.filter(b => ['Approved', 'Delivered'].includes(b.status)).length + '</div><div class="sub">ready or shipped work</div></div>' +
+    '<div class="card kpi"><div class="label">Revision rounds</div><div class="value">' + state.briefs.reduce((s, b) => s + (b.revisions || 0), 0) + '</div><div class="sub">across all briefs</div></div>' +
+  '</div>' +
+  '<div class="card"><h3>Creative briefs ' + demoTag() + '</h3><table><tr><th>Brief</th><th>Client</th><th>Type</th><th>Owner</th><th>Status</th><th>Revisions</th><th>Due</th><th></th></tr>' + rows + '</table>' +
+  '<p class="muted">Workflow: Brief → Draft → Review → Revisions → Approved → Delivered (Sec. 7). Each revision round is counted — scope changes beyond the agreed rounds go through a change request.</p></div>' +
+  '<div class="card"><h3>New brief</h3><form onsubmit="addBrief(event)">' +
+  '<label>Brief title</label><input id="br-title" required placeholder="e.g. Carousel — client results">' +
+  '<div class="form-grid"><div><label>Client</label><select id="br-client">' + cliOpts + '</select></div>' +
+  '<div><label>Type</label><select id="br-type"><option>Copy</option><option>Design</option><option>Video</option></select></div></div>' +
+  '<div class="form-grid"><div><label>Owner</label><select id="br-owner">' + ownOpts + '</select></div>' +
+  '<div><label>Due date</label><input id="br-due" type="date" required value="' + addDays(3) + '"></div></div>' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add brief</button></div></form></div>';
+}
+function addBrief(ev) {
+  ev.preventDefault();
+  state.briefs.unshift({ id: uid(), clientId: $('#br-client').value, title: $('#br-title').value.trim(), type: $('#br-type').value, ownerId: $('#br-owner').value, status: 'Brief', revisions: 0, due: $('#br-due').value, demo: false });
+  logActivity('Brief added: ' + $('#br-title').value.trim() + '.');
+  save(); render();
+}
+function setBriefStatus(id, status) {
+  const b = state.briefs.find(x => x.id === id); if (!b) return;
+  b.status = status;
+  logActivity('Brief “' + b.title + '” moved to ' + status + '.');
+  save(); render();
+}
+function addRevision(id) {
+  const b = state.briefs.find(x => x.id === id); if (!b) return;
+  b.revisions = (b.revisions || 0) + 1;
+  b.status = 'Revisions';
+  logActivity('Revision round ' + b.revisions + ' requested on brief “' + b.title + '”.');
+  save(); render();
+}
+
+/* ---------------- SEO (Sec. 8) ---------------- */
+function viewSEO() {
+  const tracked = state.keywords.filter(k => k.status === 'Tracking');
+  const pos = state.keywords.filter(k => k.position).map(k => k.position);
+  const avgPos = pos.length ? (pos.reduce((s, p) => s + p, 0) / pos.length).toFixed(1) : '—';
+  const openIssues = state.seoIssues.filter(i => i.status !== 'Fixed');
+  const kwRows = state.keywords.map(k => {
+    const c = clientById(k.clientId);
+    return '<tr><td><b>' + esc(k.keyword) + '</b>' + (k.demo ? ' <span class="pill amber">DEMO</span>' : '') + '</td><td>' + esc(c ? c.name : 'Agency website') + '</td><td>' + esc(k.intent) + '</td><td>' + esc(k.targetPage) + '</td><td>' + priorityPill(k.priority) + '</td><td>' + esc(k.status) + '</td><td>' + (k.position ? '#' + k.position : '—') + '</td></tr>';
+  }).join('');
+  const isRows = state.seoIssues.map(i => {
+    const c = clientById(i.clientId);
+    const next = i.status === 'Open' ? 'In progress' : i.status === 'In progress' ? 'Fixed' : null;
+    return '<tr><td>' + esc(i.issue) + (i.demo ? ' <span class="pill amber">DEMO</span>' : '') + '</td><td>' + esc(c ? c.name : 'Agency website') + '</td><td>' + statusPill(i.severity === 'High' ? 'Paused' : 'To Do').replace(/Paused|To Do/g, m => i.severity) + '</td><td>' + esc(i.status) + '</td><td>' + (next ? '<button class="btn small" onclick="setSeoIssueStatus(\'' + i.id + '\',\'' + next + '\')">Mark ' + next + '</button>' : '') + '</td></tr>';
+  }).join('');
+  const cliOpts = '<option value="">Agency website</option>' + state.clients.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+  return '' +
+  '<div class="kpis">' +
+    '<div class="card kpi"><div class="label">Keywords tracked</div><div class="value">' + tracked.length + '</div><div class="sub">' + state.keywords.length + ' keywords in the map</div></div>' +
+    '<div class="card kpi"><div class="label">Average position ' + demoTag() + '</div><div class="value">' + avgPos + '</div><div class="sub">across keywords with a recorded position</div></div>' +
+    '<div class="card kpi"><div class="label">Technical issues open</div><div class="value">' + openIssues.length + '</div><div class="sub">' + openIssues.filter(i => i.severity === 'High').length + ' high severity</div></div>' +
+    '<div class="card kpi"><div class="label">Content shipped</div><div class="value">' + state.posts.filter(p => p.status === 'Published').length + '</div><div class="sub">published posts (content plan)</div></div>' +
+  '</div>' +
+  '<div class="card"><h3>Keyword map ' + demoTag() + '</h3><table><tr><th>Keyword</th><th>Client / site</th><th>Intent</th><th>Target page</th><th>Priority</th><th>Status</th><th>Position</th></tr>' + kwRows + '</table>' +
+  '<p class="muted">Positions are demo samples. Connect Search Console (or add manual rank checks) for real positions — never present a demo position to a client as a real ranking.</p></div>' +
+  '<div class="card"><h3>Technical issues ' + demoTag() + '</h3><table><tr><th>Issue</th><th>Site</th><th>Severity</th><th>Status</th><th></th></tr>' + isRows + '</table></div>' +
+  '<div class="grid2"><div class="card"><h3>Add a keyword</h3><form onsubmit="addKeyword(event)">' +
+  '<label>Keyword</label><input id="kw-word" required placeholder="e.g. linkedin growth agency">' +
+  '<div class="form-grid"><div><label>Client / site</label><select id="kw-client">' + cliOpts + '</select></div>' +
+  '<div><label>Intent</label><select id="kw-intent"><option>Informational</option><option>Commercial</option><option>Local</option></select></div></div>' +
+  '<div class="form-grid"><div><label>Target page</label><input id="kw-page" required value="/" placeholder="/services"></div>' +
+  '<div><label>Priority</label><select id="kw-pri"><option>High</option><option>Medium</option><option>Low</option></select></div></div>' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add keyword</button></div></form></div>' +
+  '<div class="card"><h3>Log a technical issue</h3><form onsubmit="addSeoIssue(event)">' +
+  '<label>Issue</label><input id="si-issue" required placeholder="e.g. Missing meta descriptions on 3 pages">' +
+  '<div class="form-grid"><div><label>Client / site</label><select id="si-client">' + cliOpts + '</select></div>' +
+  '<div><label>Severity</label><select id="si-sev"><option>High</option><option>Medium</option><option>Low</option></select></div></div>' +
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Log issue</button></div></form></div></div>';
+}
+function addKeyword(ev) {
+  ev.preventDefault();
+  state.keywords.push({ id: uid(), clientId: $('#kw-client').value, keyword: $('#kw-word').value.trim(), intent: $('#kw-intent').value, targetPage: $('#kw-page').value.trim(), priority: $('#kw-pri').value, status: 'Tracking', position: null, demo: false });
+  logActivity('Keyword added: ' + $('#kw-word').value.trim() + '.');
+  save(); render();
+}
+function addSeoIssue(ev) {
+  ev.preventDefault();
+  state.seoIssues.unshift({ id: uid(), clientId: $('#si-client').value, issue: $('#si-issue').value.trim(), severity: $('#si-sev').value, status: 'Open', demo: false });
+  logActivity('SEO issue logged: ' + $('#si-issue').value.trim() + '.');
+  save(); render();
+}
+function setSeoIssueStatus(id, status) {
+  const i = state.seoIssues.find(x => x.id === id); if (!i) return;
+  i.status = status;
+  logActivity('SEO issue marked ' + status + ': ' + i.issue + '.');
+  save(); render();
+}
+
+/* ---------------- HR (Sec. 12) ---------------- */
+function viewHR() {
+  const cap = (state.settings && state.settings.capacity) || 5;
+  const totalOpen = state.tasks.filter(t => t.status !== 'done').length;
+  const avgUtil = state.employees.length ? Math.round(totalOpen / (state.employees.length * cap) * 100) : 0;
+  const pendingLeave = state.leaveRequests.filter(r => r.status === 'Pending');
+  const rows = state.employees.map(e => {
+    const open = openTasksOf(e.id).length;
+    const util = Math.min(100, Math.round(open / cap * 100));
+    const wl = workload(e.id);
+    return '<tr class="clickable" onclick="setView(\'team\',\'' + e.id + '\')"><td><b>' + esc(e.name) + '</b>' + (e.demo ? ' <span class="pill amber">DEMO</span>' : '') + '</td><td>' + esc(e.role) + '</td><td>' + esc(e.team || 'General') + ' · ' + esc(e.teamId || 'No ID') + '</td><td>' + statusPill(e.status) + '</td><td>' + open + ' open</td><td>' + util + '%</td><td><span class="pill ' + wl.cls + '">' + wl.label + '</span></td></tr>';
+  }).join('');
+  const leaveRows = pendingLeave.map(r => {
+    const e = empById(r.empId);
+    return '<li><b>' + esc(e ? e.name : '—') + '</b> — ' + fmtDate(r.from) + ' → ' + fmtDate(r.to) + ' · ' + esc(r.reason) + ' <button class="btn small" onclick="setView(\'attendance\')">Review</button></li>';
+  }).join('') || '<li class="muted">No leave requests waiting.</li>';
+  return '' +
+  '<div class="kpis">' +
+    '<div class="card kpi"><div class="label">Headcount</div><div class="value">' + state.employees.length + '</div><div class="sub">' + state.employees.filter(e => e.status === 'Working').length + ' working today</div></div>' +
+    '<div class="card kpi"><div class="label">Availability</div><div class="value">' + state.employees.filter(e => e.status === 'Working').length + ' / ' + state.employees.length + '</div><div class="sub">' + state.employees.filter(e => e.status === 'On leave').length + ' on leave</div></div>' +
+    '<div class="card kpi"><div class="label">Average utilization</div><div class="value">' + avgUtil + '%</div><div class="sub">open tasks vs capacity of ' + cap + ' per person</div></div>' +
+    '<div class="card kpi"><div class="label">Leave requests</div><div class="value">' + pendingLeave.length + ' pending</div><div class="sub">' + state.leaveRequests.length + ' total requests</div></div>' +
+  '</div>' +
+  '<div class="card"><h3>Employee directory — click a row for detail</h3><table><tr><th>Employee</th><th>Role</th><th>Team / ID</th><th>Status</th><th>Tasks</th><th>Utilization</th><th>Workload</th></tr>' + rows + '</table></div>' +
+  '<div class="grid2"><div class="card"><h3>Leave awaiting decision</h3><ul class="feed">' + leaveRows + '</ul></div>' +
+  '<div class="card"><h3>HR shortcuts</h3><div class="btnrow" style="margin-top:10px"><button class="btn ghost" onclick="setView(\'team\')">Team directory</button><button class="btn ghost" onclick="setView(\'attendance\')">Attendance &amp; leave</button><button class="btn ghost" onclick="setView(\'performance\')">Performance</button><button class="btn ghost" onclick="setView(\'workload\')">Capacity &amp; workload</button></div><p class="muted" style="margin-top:10px">Onboarding, policies, equipment and recruitment checklists live in the SOP library (Sec. 12) — add them from Settings when the team grows.</p></div></div>';
+}
+
+/* ---------------- Client Portal (Sec. 14) ---------------- */
+let portalClientId = null;
+function socialGridHTML() {
+  return '<div class="social-grid">' + state.connections.map(c =>
+    '<a class="social-card" href="' + esc(c.url) + '" target="_blank" rel="noopener"><div class="s-ic">' + esc(c.platform[0]) + '</div><div><b>' + esc(c.platform) + '</b><span>' + esc(c.handle) + '</span></div></a>'
+  ).join('') + '</div><p class="muted" style="margin-top:8px">Synced from GitHub profile · each link opens in a new tab.</p>';
+}
+function viewPortal() {
+  if (!portalClientId || !clientById(portalClientId)) portalClientId = state.clients[0] ? state.clients[0].id : null;
+  const c = clientById(portalClientId);
+  if (!c) return '<p class="muted">No clients yet.</p>';
+  const chips = state.clients.map(x => '<button class="btn ' + (x.id === c.id ? '' : 'ghost') + ' small" onclick="portalClientId=\'' + x.id + '\';render()">' + esc(x.name) + '</button>').join(' ');
+  const ct = state.tasks.filter(t => t.clientId === c.id);
+  const doneT = ct.filter(t => t.status === 'done'), openT = ct.filter(t => t.status !== 'done');
+  const miles = '<li><b>Work done:</b> ' + doneT.length + ' task(s) completed' + (doneT.length ? ' — ' + doneT.slice(0, 3).map(t => esc(t.title)).join('; ') : '') + '</li>' +
+    '<li><b>Coming up:</b> ' + (openT.length ? openT.slice(0, 5).map(t => esc(t.title) + ' (due ' + fmtDate(t.deadline) + ')').join('; ') : 'nothing scheduled') + '</li>';
+  const cPosts = state.posts.filter(p => p.clientId === c.id);
+  const apprRows = cPosts.filter(p => ['Review', 'Approved', 'Scheduled'].includes(p.status)).map(p =>
+    '<tr><td><b>' + esc(p.caption) + '</b><div class="muted">' + esc(p.platform) + ' · ' + esc(p.format) + ' · ' + fmtDate(p.date) + '</div></td><td>' + esc(p.status) + '</td>' +
+    '<td><div class="btnrow">' + (p.status === 'Review' ? '<button class="btn small" onclick="portalApprovePost(\'' + p.id + '\')">Approve ✓</button><button class="btn ghost small" onclick="portalRequestRevision(\'' + p.id + '\')">Request revision</button>' : '<span class="muted">No action needed</span>') + '</div></td></tr>'
+  ).join('') || '<tr><td colspan="3" class="muted">No posts waiting for approval.</td></tr>';
+  const cBriefs = state.briefs.filter(b => b.clientId === c.id && ['Review', 'Revisions'].includes(b.status));
+  const briefRows = cBriefs.map(b =>
+    '<tr><td><b>' + esc(b.title) + '</b><div class="muted">' + esc(b.type) + ' · ' + b.revisions + ' revision round(s)</div></td><td>' + esc(b.status) + '</td>' +
+    '<td><button class="btn small" onclick="portalApproveBrief(\'' + b.id + '\')">Approve ✓</button></td></tr>'
+  ).join('') || '<tr><td colspan="3" class="muted">No briefs waiting for approval.</td></tr>';
+  const invRows = state.finance.invoices.filter(i => i.clientId === c.id).map(i =>
+    '<tr><td>' + esc(i.label) + '</td><td>' + fmtINR(i.amount) + '</td><td>' + fmtDate(i.due) + '</td><td>' + esc(i.status) + '</td></tr>'
+  ).join('') || '<tr><td colspan="4" class="muted">No invoices for this client yet.</td></tr>';
+  return '' +
+  '<div class="portal-hero"><h2>Client Portal — ' + esc(c.name) + ' ' + (c.demo ? '<span class="pill amber">DEMO</span>' : '') + '</h2>' +
+  '<p class="muted">This is exactly what the client sees: their services, milestones, approvals and invoices — nothing else. Internal notes, agency margins, other clients and credentials are never shown here (Sec. 14).</p>' +
+  '<div class="btnrow" style="margin-top:12px">' + chips + '</div></div>' +
+  '<div class="grid2"><div class="card"><h3>Active services</h3><div class="stat-grid">' +
+    '<div class="stat"><div class="slabel">Service</div><div class="svalue" style="font-size:16px">' + esc(c.service) + '</div></div>' +
+    '<div class="stat"><div class="slabel">Retainer</div><div class="svalue" style="font-size:16px">' + (c.amount ? fmtINR(c.amount) + '/mo' : 'Not set') + '</div></div>' +
+    '<div class="stat"><div class="slabel">Status</div><div class="svalue" style="font-size:16px">' + esc(c.status) + '</div></div>' +
+    '<div class="stat"><div class="slabel">Project deadline</div><div class="svalue" style="font-size:16px">' + fmtDate(c.deadline) + '</div></div></div>' +
+    '<p class="muted">' + esc(c.niche) + (c.results ? ' · LinkedIn: ' + c.results.followers.toLocaleString('en-IN') + ' followers, ' + c.results.impressions.toLocaleString('en-IN') + ' impressions (verified analytics).' : '') + '</p></div>' +
+  '<div class="card"><h3>Milestones</h3><ul class="feed">' + miles + '</ul><p class="muted">' + doneT.length + ' of ' + ct.length + ' tasks complete.</p></div></div>' +
+  '<div class="card"><h3>Content awaiting your approval</h3><table><tr><th>Post</th><th>Status</th><th></th></tr>' + apprRows + '</table></div>' +
+  '<div class="card"><h3>Briefs awaiting your approval</h3><table><tr><th>Brief</th><th>Status</th><th></th></tr>' + briefRows + '</table></div>' +
+  '<div class="card"><h3>Invoices</h3><table><tr><th>Invoice</th><th>Amount</th><th>Due</th><th>Status</th></tr>' + invRows + '</table></div>' +
+  '<div class="card"><h3>Find Raj online</h3>' + socialGridHTML() + '</div>';
+}
+function portalApprovePost(id) {
+  const p = state.posts.find(x => x.id === id); if (!p) return;
+  p.status = 'Approved';
+  logActivity('Client approved post: “' + p.caption.slice(0, 40) + '”.');
+  save(); render();
+}
+function portalRequestRevision(id) {
+  const p = state.posts.find(x => x.id === id); if (!p) return;
+  p.status = 'Draft';
+  logActivity('Client requested revision on post: “' + p.caption.slice(0, 40) + '”.');
+  save(); render();
+}
+function portalApproveBrief(id) {
+  const b = state.briefs.find(x => x.id === id); if (!b) return;
+  b.status = 'Approved';
+  logActivity('Client approved brief: “' + b.title + '”.');
+  save(); render();
+}
+
+/* ---------------- Paid Ads — campaign actions (Sec. 9) ---------------- */
+function addCampaign(ev) {
+  ev.preventDefault();
+  state.campaigns.unshift({ id: uid(), name: $('#cp-name').value.trim(), platform: $('#cp-platform').value, budget: Number($('#cp-budget').value) || 0, spend: Number($('#cp-spend').value) || 0, reach: Number($('#cp-reach').value) || 0, leads: Number($('#cp-leads').value) || 0, conversions: Number($('#cp-conv').value) || 0, status: $('#cp-status').value, demo: false });
+  logActivity('Campaign added: ' + $('#cp-name').value.trim() + '.');
+  save(); render();
+}
+function deleteCampaign(id) {
+  const c = state.campaigns.find(x => x.id === id); if (!c) return;
+  if (!confirm('Delete campaign “' + c.name + '”?')) return;
+  state.campaigns = state.campaigns.filter(x => x.id !== id);
+  save(); render();
+}
+
+/* ---------------- Login gate (demo-grade auth) ----------------
+   The credentials live ONLY in this browser's localStorage. This is a
+   static site with no backend, so this is NOT real server security —
+   the screens say so plainly. Session survives refresh via
+   sessionStorage; logout clears it. */
+function getCreds() {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch (e) { return null; }
+}
+function isAuthed() {
+  try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch (e) { return false; }
+}
+function showAuth() {
+  $('#app').style.display = 'none';
+  const root = $('#auth-root');
+  const creds = getCreds();
+  root.innerHTML = creds ? authLoginHTML() : authCreateHTML();
+}
+function enterApp() {
+  $('#auth-root').innerHTML = '';
+  $('#app').style.display = '';
+  currentView = 'overview'; viewParam = null;
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === 'overview'));
+  $('#viewTitle').textContent = TITLES.overview;
+  render();
+}
+function authShell(inner) {
+  return '<div class="auth-wrap"><div class="auth-card">' +
+    '<div class="logo">Agency<span>OS</span></div>' +
+    '<div class="auth-tag">Digital Marketing Agency ERP &amp; CEO Command Center</div>' + inner + '</div></div>';
+}
+function authCreateHTML() {
+  return authShell(
+    '<h2>Create your login</h2><p class="auth-sub">Set a username and password for this dashboard. First run only — after this, you will log in with them.</p>' +
+    '<div class="auth-err" id="au-err"></div>' +
+    '<form onsubmit="createLogin(event)">' +
+    '<label>Username</label><input id="au-user" required minlength="3" placeholder="e.g. rajan" autocomplete="username">' +
+    '<label>Password</label><input id="au-pass" type="password" required minlength="4" placeholder="At least 4 characters" autocomplete="new-password">' +
+    '<label>Confirm password</label><input id="au-pass2" type="password" required minlength="4" placeholder="Repeat your password" autocomplete="new-password">' +
+    '<div class="btnrow" style="margin-top:16px"><button class="btn" type="submit" style="flex:1">Create login &amp; enter</button></div></form>' +
+    '<div class="auth-demo"><button class="btn ghost" type="button" onclick="demoLogin()">Use demo login — preview instantly</button></div>' +
+    '<p class="auth-note"><b>Demo login</b> — stored only in this browser. This static site has no server, so this is not real account security. Anyone with access to this browser can open the dashboard.</p>');
+}
+function authLoginHTML() {
+  return authShell(
+    '<h2>Welcome back</h2><p class="auth-sub">Log in to open your CEO dashboard.</p>' +
+    '<div class="auth-err" id="au-err"></div>' +
+    '<form onsubmit="doLogin(event)">' +
+    '<label>Username</label><input id="au-user" required placeholder="Your username" autocomplete="username">' +
+    '<label>Password</label><input id="au-pass" type="password" required placeholder="Your password" autocomplete="current-password">' +
+    '<div class="btnrow" style="margin-top:16px"><button class="btn" type="submit" style="flex:1">Login</button></div></form>' +
+    '<div class="auth-demo"><button class="btn ghost" type="button" onclick="demoLogin()">Use demo login (demo / demo)</button></div>' +
+    '<div class="auth-links"><a onclick="resetLogin()">Reset login — forgot password?</a><span class="muted">Stored only in this browser</span></div>' +
+    '<p class="auth-note"><b>Demo login</b> — stored only in this browser. This static site has no server, so this is not real account security.</p>');
+}
+function authError(msg) {
+  const el = $('#au-err');
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+function createLogin(ev) {
+  ev.preventDefault();
+  const u = $('#au-user').value.trim(), p = $('#au-pass').value, p2 = $('#au-pass2').value;
+  if (u.length < 3) { authError('Username needs at least 3 characters.'); return; }
+  if (p.length < 4) { authError('Password needs at least 4 characters.'); return; }
+  if (p !== p2) { authError('Passwords do not match — please type the same password twice.'); return; }
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ u, p }));
+  sessionStorage.setItem(SESSION_KEY, '1');
+  logActivity('Login created for this browser.');
+  save();
+  enterApp();
+}
+function doLogin(ev) {
+  ev.preventDefault();
+  const creds = getCreds();
+  const u = $('#au-user').value.trim(), p = $('#au-pass').value;
+  if (creds && u === creds.u && p === creds.p) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    enterApp();
+  } else {
+    authError('Wrong username or password. Try again, use the demo login, or reset the login.');
+  }
+}
+function demoLogin() {
+  sessionStorage.setItem(SESSION_KEY, '1');
+  sessionStorage.setItem('agencyos-demo-user', '1');
+  enterApp();
+}
+function logout() {
+  try { sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem('agencyos-demo-user'); } catch (e) {}
+  showAuth();
+}
+function resetLogin() {
+  if (!confirm('Clear the saved login? You will need to create a new one on your next visit.')) return;
+  try { localStorage.removeItem(AUTH_KEY); sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+  showAuth();
+}
+
 /* ---------------- Init ---------------- */
 function init() {
   load();
   $('#topDate').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
-  render();
+  if (isAuthed()) { enterApp(); } else { showAuth(); }
 }
 init();
 
@@ -920,6 +1686,10 @@ function alertsList() {
     list.push({ sev: i.status === 'Overdue' ? 'red' : 'amber', type: 'Unpaid invoice', text: i.label + ' — ' + fmtINR(i.amount) + ', due ' + fmtDate(i.due), view: 'finance' }));
   state.clients.filter(c => state.tasks.some(t => t.clientId === c.id && isOverdue(t))).forEach(c =>
     list.push({ sev: 'amber', type: 'At-risk client', text: c.name + ' has overdue tasks — check in this week', view: 'clients' }));
+  state.proposals.filter(p => ['Sent', 'Negotiation'].includes(p.status) && p.validUntil && p.validUntil <= addDays(7)).forEach(p =>
+    list.push({ sev: 'amber', type: 'Proposal expiring', text: p.title + ' — ' + p.leadName + ', valid until ' + fmtDate(p.validUntil), view: 'proposals' }));
+  state.clients.filter(c => c.status === 'Active' && c.deadline && c.deadline >= todayISO() && c.deadline <= addDays(14)).forEach(c =>
+    list.push({ sev: 'amber', type: 'Renewal due', text: c.name + ' — contract / project ends ' + fmtDate(c.deadline) + ', review renewal', view: 'clients' }));
   list.sort((a, b) => (a.sev === 'red' ? 0 : 1) - (b.sev === 'red' ? 0 : 1));
   return list;
 }
@@ -950,6 +1720,14 @@ function viewFinance() {
     return '<tr><td>' + esc(i.label) + '</td><td>' + esc(c ? c.name : '—') + '</td><td>' + fmtINR(i.amount) + '</td><td>' + fmtDate(i.due) + (i.status === 'Overdue' ? ' <span class="overdue">OVERDUE</span>' : '') + '</td><td>' + statusPill(i.status === 'Paid' ? 'Done' : i.status === 'Overdue' ? 'Paused' : 'To Do').replace(/Done|Paused|To Do/g, m => i.status) + '</td><td>' + (i.status !== 'Paid' ? '<button class="btn small" onclick="markInvoicePaid(\'' + i.id + '\')">Mark paid</button>' : '') + '</td></tr>';
   }).join('');
   const cliOpts = state.clients.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+  const unpaid = state.finance.invoices.filter(i => i.status !== 'Paid');
+  const agingCur = unpaid.filter(i => i.due >= todayISO()).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const aging30 = unpaid.filter(i => i.due < todayISO() && i.due >= addDays(-30)).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const aging30p = unpaid.filter(i => i.due < addDays(-30)).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const profRows = state.clients.map(c => {
+    const cp = clientProfit(c);
+    return '<tr><td>' + esc(c.name) + (c.demo ? ' <span class="pill amber">DEMO</span>' : '') + '</td><td>' + (cp ? fmtINR(cp.rev) : 'Not set') + '</td><td>' + (cp && cp.cost !== null ? fmtINR(cp.cost) + ' (demo est.)' : '—') + '</td><td>' + (cp && cp.profit !== null ? fmtINR(cp.profit) : '—') + '</td><td>' + (cp && cp.profit !== null ? Math.round(cp.profit / cp.rev * 100) + '%' : '—') + '</td></tr>';
+  }).join('');
   return '' +
   '<div class="kpis">' +
     '<div class="card kpi"><div class="label">Revenue (this month)</div><div class="value lime">' + fmtINR(rev) + '</div><div class="sub">monthly retainers on client records</div></div>' +
@@ -958,6 +1736,13 @@ function viewFinance() {
     '<div class="card kpi"><div class="label">Pending payments</div><div class="value">' + fmtINR(pendingPayments()) + '</div><div class="sub">' + state.finance.invoices.filter(i => i.status !== 'Paid').length + ' unpaid invoices</div></div>' +
     '<div class="card kpi"><div class="label">Cash in hand ' + demoTag() + '</div><div class="value">' + fmtINR(state.finance.cashInHand) + '</div><div class="sub"><input type="number" min="0" value="' + state.finance.cashInHand + '" onchange="updateCash(this.value)" style="max-width:150px;display:inline-block"> update</div></div>' +
   '</div>' +
+  '<div class="grid2"><div class="card"><h3>Receivables aging</h3><div class="stat-grid">' +
+    '<div class="stat"><div class="slabel">Not yet due</div><div class="svalue">' + fmtINR(agingCur) + '</div></div>' +
+    '<div class="stat"><div class="slabel">Overdue 1–30 days</div><div class="svalue">' + fmtINR(aging30) + '</div></div>' +
+    '<div class="stat"><div class="slabel">Overdue 30+ days</div><div class="svalue">' + fmtINR(aging30p) + '</div></div></div>' +
+    '<p class="muted">Aging is computed from invoice due dates. Overdue invoices also raise an alert in the Alerts center.</p></div>' +
+  '<div class="card"><h3>Profitability per client ' + demoTag() + '</h3><table><tr><th>Client</th><th>Revenue / mo</th><th>Est. cost / mo</th><th>Profit / mo</th><th>Margin</th></tr>' + profRows + '</table>' +
+  '<p class="muted">Estimated cost is a demo figure (60% of revenue) for demo clients only. Real-client costs need actual salary and ad spend figures — see Sec. 11.</p></div></div>' +
   '<div class="grid2"><div class="card"><h3>Expenses ' + demoTag() + '</h3><table><tr><th>Item</th><th>Amount</th><th></th></tr>' + expRows + '</table>' +
   '<form onsubmit="addExpense(event)" style="margin-top:12px"><div class="form-grid"><div><label>Expense</label><input id="ex-label" required placeholder="e.g. Internet bill"></div><div><label>Amount (₹)</label><input id="ex-amount" type="number" min="0" required></div></div><div class="btnrow" style="margin-top:10px"><button class="btn small" type="submit">Add expense</button></div></form></div>' +
   '<div class="card"><h3>Invoices</h3><table><tr><th>Invoice</th><th>Client</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr>' + invRows + '</table>' +
@@ -995,42 +1780,51 @@ function updateCash(val) {
   save(); render();
 }
 
-/* ---------------- Leads / Sales pipeline ---------------- */
-const LEAD_STAGES = ['New', 'Contacted', 'Proposal sent', 'Negotiation', 'Won', 'Lost'];
-function viewLeads() {
+/* ---------------- CRM / Sales pipeline (Sec. 4) ---------------- */
+function viewCRM() {
   const total = state.leads.length;
-  const won = state.leads.filter(l => l.stage === 'Won');
+  const won = state.leads.filter(l => l.stage === 'Won / Contracted');
   const lost = state.leads.filter(l => l.stage === 'Lost');
   const conv = (won.length + lost.length) ? Math.round(won.length / (won.length + lost.length) * 100) : 0;
-  const pipeVal = state.leads.filter(l => !['Won', 'Lost'].includes(l.stage)).reduce((s, l) => s + (Number(l.value) || 0), 0);
+  const openLeads = state.leads.filter(l => !['Won / Contracted', 'Lost'].includes(l.stage));
+  const pipeVal = openLeads.reduce((s, l) => s + (Number(l.value) || 0), 0);
+  const expected = openLeads.reduce((s, l) => s + (Number(l.value) || 0) * (CRM_WEIGHTS[l.stage] || 0), 0);
   const sources = {};
-  state.leads.forEach(l => { sources[l.source] = sources[l.source] || { n: 0, won: 0, val: 0 }; sources[l.source].n++; sources[l.source].val += Number(l.value) || 0; if (l.stage === 'Won') sources[l.source].won++; });
+  state.leads.forEach(l => { sources[l.source] = sources[l.source] || { n: 0, won: 0, val: 0 }; sources[l.source].n++; sources[l.source].val += Number(l.value) || 0; if (l.stage === 'Won / Contracted') sources[l.source].won++; });
   const srcRows = Object.keys(sources).map(s => '<tr><td>' + esc(s) + '</td><td>' + sources[s].n + '</td><td>' + sources[s].won + '</td><td>' + fmtINR(sources[s].val) + '</td></tr>').join('');
-  const rows = state.leads.map(l => {
-    const idx = LEAD_STAGES.indexOf(l.stage);
-    return '<tr><td><b>' + esc(l.name) + '</b></td><td>' + esc(l.source) + '</td><td>' + esc(l.service) + '</td><td>' + fmtINR(l.value) + '</td><td>' + fmtDate(l.createdAt) + '</td><td>' + statusPill(l.stage === 'Won' ? 'Done' : l.stage === 'Lost' ? 'Paused' : 'To Do').replace(/Done|Paused|To Do/g, m => l.stage) + '</td><td><div class="btnrow">' +
-      (idx < 4 ? '<button class="btn small" onclick="setLeadStage(\'' + l.id + '\',\'' + LEAD_STAGES[idx + 1] + '\')">Advance →</button>' : '') +
-      (l.stage !== 'Lost' && l.stage !== 'Won' ? '<button class="btn danger small" onclick="setLeadStage(\'' + l.id + '\',\'Lost\')">Lost</button>' : '') + '</div></td></tr>';
+  const flow = CRM_STAGES.map(s => {
+    const n = state.leads.filter(l => l.stage === s).length;
+    return '<span class="fstep' + (n ? ' on' : '') + '">' + esc(s) + ' · ' + n + '</span>';
+  }).join('<span class="farrow">→</span>');
+  const kanban = CRM_STAGES.map(s => {
+    const items = state.leads.filter(l => l.stage === s);
+    const cards = items.map(l => {
+      const idx = CRM_STAGES.indexOf(l.stage);
+      return '<div class="kcard"><b>' + esc(l.name) + '</b><div class="muted">' + esc(l.service) + ' · ' + esc(l.source) + '</div><div class="muted">' + fmtINR(l.value) + ' · added ' + fmtDate(l.createdAt) + '</div><div class="btnrow">' +
+        (idx < 8 ? '<button class="btn small" onclick="setLeadStage(\'' + l.id + '\',\'' + CRM_STAGES[idx + 1] + '\')">Advance →</button>' : '') +
+        (idx <= 4 ? '<button class="btn danger small" onclick="setLeadStage(\'' + l.id + '\',\'Lost\')">Lost</button>' : '') + '</div></div>';
+    }).join('') || '<p class="empty">—</p>';
+    return '<div class="kcol"><h3>' + esc(s) + ' <span class="count">' + items.length + '</span></h3>' + cards + '</div>';
   }).join('');
   return '' +
   '<div class="kpis">' +
     '<div class="card kpi"><div class="label">Total leads ' + demoTag() + '</div><div class="value">' + total + '</div><div class="sub">' + state.leads.filter(l => l.createdAt >= addDays(-7)).length + ' new this week</div></div>' +
-    '<div class="card kpi"><div class="label">Won</div><div class="value lime">' + won.length + '</div><div class="sub">conversion ' + conv + '% (won / decided)</div></div>' +
-    '<div class="card kpi"><div class="label">Open pipeline value</div><div class="value">' + fmtINR(pipeVal) + '</div><div class="sub">leads not yet won or lost</div></div>' +
+    '<div class="card kpi"><div class="label">Won / Contracted</div><div class="value lime">' + won.length + '</div><div class="sub">conversion ' + conv + '% (won / decided)</div></div>' +
+    '<div class="card kpi"><div class="label">Open pipeline value</div><div class="value">' + fmtINR(pipeVal) + '</div><div class="sub">stage-weighted expected ' + fmtINR(Math.round(expected)) + '</div></div>' +
   '</div>' +
+  '<div class="card"><h3>Client lifecycle — Sec. 4</h3><div class="flow" style="margin-top:10px">' + flow + '</div><p class="muted" style="margin-top:10px">New Lead → Qualified → Discovery → Proposal Sent → Negotiation → Won / Contracted → Onboarding → Active → Renewal. Advance moves a lead to the next stage; a Won lead becomes a client — add them on the Clients page.</p></div>' +
+  '<div class="kanban">' + kanban + '</div>' +
   '<div class="grid2"><div class="card"><h3>Leads by source</h3><table><tr><th>Source</th><th>Leads</th><th>Won</th><th>Total value</th></tr>' + srcRows + '</table></div>' +
   '<div class="card"><h3>Add a lead</h3><form onsubmit="addLead(event)">' +
   '<label>Name / business</label><input id="ld-name" required placeholder="e.g. Sharma Jewellers">' +
   '<div class="form-grid"><div><label>Source</label><select id="ld-source"><option>Meta</option><option>Google</option><option>Referral</option><option>Instagram</option><option>LinkedIn</option></select></div>' +
   '<div><label>Service needed</label><input id="ld-service" required placeholder="e.g. Meta Ads"></div></div>' +
   '<label>Deal value (₹)</label><input id="ld-value" type="number" min="0" required>' +
-  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add lead</button></div></form></div></div>' +
-  '<div class="card"><h3>Pipeline</h3><table><tr><th>Lead</th><th>Source</th><th>Service</th><th>Value</th><th>Added</th><th>Stage</th><th></th></tr>' + rows + '</table>' +
-  '<p class="muted">Advance moves a lead to the next stage. A Won lead is a new client — add them on the Clients page.</p></div>';
+  '<div class="btnrow" style="margin-top:12px"><button class="btn" type="submit">Add lead</button></div></form></div></div>';
 }
 function addLead(ev) {
   ev.preventDefault();
-  state.leads.unshift({ id: uid(), name: $('#ld-name').value.trim(), source: $('#ld-source').value, service: $('#ld-service').value.trim(), value: Number($('#ld-value').value) || 0, stage: 'New', createdAt: todayISO() });
+  state.leads.unshift({ id: uid(), name: $('#ld-name').value.trim(), source: $('#ld-source').value, service: $('#ld-service').value.trim(), value: Number($('#ld-value').value) || 0, stage: 'New Lead', createdAt: todayISO() });
   logActivity('New lead added: ' + $('#ld-name').value.trim() + ' (' + $('#ld-source').value + ').');
   save(); render();
 }
@@ -1047,7 +1841,7 @@ function viewMarketing() {
   const leads = state.marketing.reduce((s, c) => s + c.leads, 0);
   const revenue = state.marketing.reduce((s, c) => s + c.revenue, 0);
   const rows = state.marketing.map(c =>
-    '<tr><td><b>' + esc(c.name) + '</b> ' + demoTag() + '</td><td>' + esc(c.channel) + '</td><td>' + fmtINR(c.spend) + '</td><td>' + c.leads + '</td><td>' + fmtINR(c.revenue) + '</td><td>' + (c.spend ? (c.revenue / c.spend).toFixed(1) + 'x' : '—') + '</td><td>' + statusPill(c.status) + '</td></tr>'
+    '<tr><td><b>' + esc(c.name) + '</b> ' + demoTag() + '</td><td>' + esc(c.channel) + '</td><td>' + fmtINR(c.budget || 0) + '</td><td>' + fmtINR(c.spend) + '</td><td>' + c.leads + '</td><td>' + (c.conversions || 0) + '</td><td>' + fmtINR((c.conversions || 0) ? Math.round(c.spend / c.conversions) : 0) + '</td><td>' + fmtINR(c.revenue) + '</td><td>' + (c.spend ? (c.revenue / c.spend).toFixed(1) + 'x' : '—') + '</td><td>' + statusPill(c.status) + '</td></tr>'
   ).join('');
   return '' +
   '<div class="kpis">' +
@@ -1055,7 +1849,7 @@ function viewMarketing() {
     '<div class="card kpi"><div class="label">Total leads ' + demoTag() + '</div><div class="value">' + leads + '</div><div class="sub">across all channels</div></div>' +
     '<div class="card kpi"><div class="label">Revenue attributed ' + demoTag() + '</div><div class="value lime">' + fmtINR(revenue) + '</div><div class="sub">blended ROAS ' + (spend ? (revenue / spend).toFixed(1) + 'x' : '—') + '</div></div>' +
   '</div>' +
-  '<div class="card"><h3>All campaigns — one table</h3><table><tr><th>Campaign</th><th>Channel</th><th>Spend</th><th>Leads</th><th>Revenue</th><th>ROAS</th><th>Status</th></tr>' + rows + '</table>' +
+  '<div class="card"><h3>All campaigns — one table</h3><table><tr><th>Campaign</th><th>Channel</th><th>Budget</th><th>Spend</th><th>Leads</th><th>Conv.</th><th>CPA</th><th>Revenue</th><th>ROAS</th><th>Status</th></tr>' + rows + '</table>' +
   '<p class="muted">ROAS = revenue / spend. All figures here are demo — connect Meta Ads (and Google / LinkedIn accounts) for live numbers.</p></div>';
 }
 
@@ -1132,14 +1926,30 @@ function viewReports() {
   let topId = null, topN = 0;
   Object.keys(perEmp).forEach(id => { if (perEmp[id] > topN) { topN = perEmp[id]; topId = id; } });
   const topName = topId ? (empById(topId) || {}).name : '—';
+  const mSpend = state.marketing.reduce((s, c) => s + c.spend, 0);
+  const mLeads = state.marketing.reduce((s, c) => s + c.leads, 0);
+  const mRev = state.marketing.reduce((s, c) => s + c.revenue, 0);
+  const mConv = state.marketing.reduce((s, c) => s + (c.conversions || 0), 0);
+  const seoOpenN = state.seoIssues.filter(i => i.status !== 'Fixed').length;
+  const metricRow = (area, metrics) => '<tr><td><b>' + area + '</b></td><td>' + metrics + '</td></tr>';
   return '' +
   '<div class="card"><h3>Weekly summary — read in one minute</h3><ul class="feed">' +
   '<li><b>' + doneWeek.length + ' tasks completed</b> this week · ' + state.tasks.filter(t => t.status !== 'done').length + ' still open · ' + state.tasks.filter(isOverdue).length + ' overdue right now.</li>' +
-  '<li><b>' + newLeads.length + ' new leads</b> this week · ' + state.leads.filter(l => l.stage === 'Won').length + ' total won · pipeline value ' + fmtINR(state.leads.filter(l => !['Won', 'Lost'].includes(l.stage)).reduce((s, l) => s + (Number(l.value) || 0), 0)) + '.</li>' +
+  '<li><b>' + newLeads.length + ' new leads</b> this week · ' + state.leads.filter(l => l.stage === 'Won / Contracted').length + ' total won · pipeline value ' + fmtINR(state.leads.filter(l => !['Won / Contracted', 'Lost'].includes(l.stage)).reduce((s, l) => s + (Number(l.value) || 0), 0)) + '.</li>' +
   '<li><b>Revenue ' + fmtINR(rev) + ' / month</b> from retainers · ' + fmtINR(pendingPayments()) + ' in unpaid invoices · cash in hand ' + fmtINR(state.finance.cashInHand) + '.</li>' +
   '<li><b>Attendance today:</b> ' + present + ' of ' + state.employees.length + ' present.</li>' +
   '<li><b>Top performer this week:</b> ' + esc(topName) + (topN ? ' — ' + topN + ' tasks completed.' : ' — no completions recorded yet.') + '</li>' +
   '<li><b>Alerts open:</b> ' + alertCount() + ' — see the Alerts center for the full list.</li></ul></div>' +
+  '<div class="card"><h3>Reports &amp; analytics — Sec. 15</h3><p class="muted">Every metric below states its source. Platform-reported numbers are labeled demo until the real account is connected; CRM-confirmed outcomes come from your own records.</p><table style="margin-top:12px"><tr><th>Area</th><th>Metrics (this period)</th></tr>' +
+  metricRow('Agency finance', 'Revenue ' + fmtINR(rev) + ' · cash collected ' + fmtINR(state.finance.invoices.filter(i => i.status === 'Paid').reduce((s, i) => s + i.amount, 0)) + ' · expenses ' + fmtINR(financeExpenses()) + ' · gross margin ' + (rev ? Math.round((rev - financeExpenses()) / rev * 100) : 0) + '% · receivables ' + fmtINR(pendingPayments())) +
+  metricRow('Sales', state.leads.length + ' leads · ' + state.leads.filter(l => l.stage === 'Won / Contracted').length + ' won · win rate ' + (state.leads.filter(l => ['Won / Contracted', 'Lost'].includes(l.stage)).length ? Math.round(state.leads.filter(l => l.stage === 'Won / Contracted').length / state.leads.filter(l => ['Won / Contracted', 'Lost'].includes(l.stage)).length * 100) : 0) + '% · pipeline ' + fmtINR(state.leads.filter(l => !['Won / Contracted', 'Lost'].includes(l.stage)).reduce((s, l) => s + (Number(l.value) || 0), 0))) +
+  metricRow('Client success', state.clients.filter(c => c.status === 'Active').length + ' active / ' + state.clients.length + ' total · retention ' + (state.clients.length ? Math.round(state.clients.filter(c => c.status === 'Active').length / state.clients.length * 100) : 0) + '% · at-risk ' + state.clients.filter(c => state.tasks.some(t => t.clientId === c.id && isOverdue(t))).length) +
+  metricRow('Delivery', doneWeek.length + ' tasks done this week · on-time rate ' + (state.tasks.filter(t => t.status === 'done').length ? Math.round(onTimeDone(state.tasks.filter(t => t.status === 'done')) / state.tasks.filter(t => t.status === 'done').length * 100) : 0) + '% · ' + state.projects.filter(p => p.status === 'On track').length + '/' + state.projects.length + ' projects on track') +
+  metricRow('Social media', state.posts.filter(p => p.status === 'Published').length + ' published · ' + state.posts.filter(p => p.status === 'Scheduled').length + ' scheduled · ' + state.posts.filter(p => p.status === 'Review').length + ' awaiting approval (demo calendar)') +
+  metricRow('SEO', state.keywords.length + ' keywords tracked · ' + seoOpenN + ' technical issues open · 1,240 organic clicks / 18,500 impressions (demo sample)') +
+  metricRow('Paid media', 'Spend ' + fmtINR(mSpend) + ' · leads ' + mLeads + ' · conversions ' + mConv + ' · CPA ' + fmtINR(mConv ? Math.round(mSpend / mConv) : 0) + ' · ROAS ' + (mSpend ? (mRev / mSpend).toFixed(1) + 'x' : '—') + ' (demo)') +
+  metricRow('People', state.employees.length + ' headcount · ' + present + ' present today · utilization ' + (state.employees.length ? Math.round(state.tasks.filter(t => t.status !== 'done').length / (state.employees.length * ((state.settings && state.settings.capacity) || 5)) * 100) : 0) + '% · ' + state.leaveRequests.filter(r => r.status === 'Pending').length + ' leave request(s) pending') +
+  '</table></div>' +
   '<div class="card"><h3>Export</h3><p class="muted">Download your data as CSV files — open them in Excel or Google Sheets.</p>' +
   '<div class="btnrow" style="margin-top:12px"><button class="btn" onclick="exportTasksCSV()">Download tasks CSV</button><button class="btn" onclick="exportClientsCSV()">Download clients CSV</button></div></div>';
 }
