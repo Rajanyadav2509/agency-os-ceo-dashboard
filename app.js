@@ -16,16 +16,21 @@ const timeHM = iso => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit
 const dayShort = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short' });
 const isOverdue = t => t.status !== 'done' && t.deadline && t.deadline < todayISO();
 const isDueToday = t => t.status !== 'done' && t.deadline === todayISO();
+const digitsOnly = p => String(p || '').replace(/\D/g, '');
+const waNumber = p => { let d = digitsOnly(p); if (d.length === 10) d = '91' + d; if (d.length === 11 && d[0] === '0') d = '91' + d.slice(1); return d; };
+const waLink = (p, text) => 'https://wa.me/' + waNumber(p) + (text ? '?text=' + encodeURIComponent(text) : '');
+const taskMsg = t => { const c = clientById(t.clientId); return 'Hi, new task for you: "' + t.title + '"' + (c ? ' — Client: ' + c.name : '') + (t.deadline ? ' — Deadline: ' + fmtDate(t.deadline) : '') + ' — Priority: ' + t.priority + '. — ' + (state.settings.agencyName || 'Agency'); };
+const nextTeamId = () => { const n = state.employees.map(e => parseInt(String(e.teamId || '').replace(/\D/g, ''), 10) || 0); return 'TM-' + String((n.length ? Math.max.apply(null, n) : 0) + 1).padStart(3, '0'); };
 
 /* ---------------- Seed data ---------------- */
 function seed() {
-  const emp = (name, role, status, resp, color) => ({ id: uid(), name, role, status, responsibilities: resp, color, demo: true });
+  const emp = (name, role, status, resp, color, teamId, phone, team) => ({ id: uid(), name, role, status, responsibilities: resp, color, demo: true, teamId, phone, team });
   const employees = [
-    emp('Priya Sharma', 'Content Writer', 'Working', ['LinkedIn content writing', 'Newsletter drafts', 'Client content calendars'], '#a259ff'),
-    emp('Arjun Mehta', 'Video Editor', 'Working', ['Reels and video editing', 'YouTube video edits', 'Thumbnail design'], '#2997ff'),
-    emp('Neha Patel', 'Social Media Executive', 'Working', ['Daily posting across clients', 'Community replies', 'Engagement tracking'], '#2fd47c'),
-    emp('Rohit Verma', 'Ads Specialist', 'On leave', ['Meta Ads campaigns', 'Ad performance reports', 'Pixel and tracking setup'], '#ffb547'),
-    emp('Sneha Iyer', 'Graphic Designer', 'Working', ['Carousels and creatives', 'Brand kits', 'Client presentations'], '#ff5f6d'),
+    emp('Priya Sharma', 'Content Writer', 'Working', ['LinkedIn content writing', 'Newsletter drafts', 'Client content calendars'], '#a259ff', 'TM-001', '+91 98765 00001', 'Content'),
+    emp('Arjun Mehta', 'Video Editor', 'Working', ['Reels and video editing', 'YouTube video edits', 'Thumbnail design'], '#2997ff', 'TM-002', '+91 98765 00002', 'Video'),
+    emp('Neha Patel', 'Social Media Executive', 'Working', ['Daily posting across clients', 'Community replies', 'Engagement tracking'], '#2fd47c', 'TM-003', '+91 98765 00003', 'Social'),
+    emp('Rohit Verma', 'Ads Specialist', 'On leave', ['Meta Ads campaigns', 'Ad performance reports', 'Pixel and tracking setup'], '#ffb547', 'TM-004', '+91 98765 00004', 'Ads'),
+    emp('Sneha Iyer', 'Graphic Designer', 'Working', ['Carousels and creatives', 'Brand kits', 'Client presentations'], '#ff5f6d', 'TM-005', '+91 98765 00005', 'Design'),
   ];
   const E = i => employees[i].id;
 
@@ -197,6 +202,7 @@ function render() {
   const el = $('#view');
   if (currentView === 'overview') el.innerHTML = viewOverview();
   else if (currentView === 'team') el.innerHTML = viewParam ? viewTeamDetail(viewParam) : viewTeam();
+  else if (currentView === 'groups') el.innerHTML = viewGroups();
   else if (currentView === 'tasks') el.innerHTML = viewTasks();
   else if (currentView === 'clients') el.innerHTML = viewParam ? viewClientDetail(viewParam) : viewClients();
   else if (currentView === 'ads') el.innerHTML = viewAds();
@@ -295,10 +301,12 @@ function viewTeam() {
       '<div class="avatar">' + esc(e.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()) + '</div>' +
       '<div class="grow"><div class="ename">' + esc(e.name) + ' ' + (e.demo ? '<span class="pill amber">DEMO</span>' : '') + '</div>' +
       '<div class="emeta">' + esc(e.role) + ' · Now: ' + esc(current ? current.title : 'No open task') + '</div>' +
+      '<div class="emeta">' + esc(e.teamId || 'No ID') + ' · ' + esc(e.team || 'General') + (e.phone ? ' · ' + esc(e.phone) : ' · No number') + '</div>' +
       '<div class="progress"><i style="width:' + rate + '%"></i></div></div>' +
       '<div style="text-align:right;min-width:150px"><div>' + statusPill(e.status) + ' <span class="pill ' + wl.cls + '">' + wl.label + '</span></div>' +
       '<div class="emeta" style="margin-top:6px">' + open.length + ' open · ' + done.length + ' done · ' + rate + '% complete</div></div>' +
       '<button class="btn ghost small" onclick="setView(\'team\',\'' + e.id + '\')">View</button>' +
+      (e.phone ? '<a class="btn small" href="' + waLink(e.phone, 'Hi ' + e.name.split(' ')[0] + ', this is ' + (state.settings.agencyName || 'your agency') + '.') + '" target="_blank" rel="noopener">WhatsApp</a>' : '') +
     '</div>';
   }).join('');
   const latest = state.announcements[0];
@@ -334,7 +342,13 @@ function viewTeamDetail(id) {
   '<div class="card" style="margin-top:14px"><div class="emp-row" style="border:none;padding:0">' +
     '<div class="avatar" style="width:56px;height:56px;font-size:18px">' + esc(e.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()) + '</div>' +
     '<div class="grow"><div class="ename" style="font-size:19px">' + esc(e.name) + ' ' + (e.demo ? '<span class="pill amber">DEMO</span>' : '') + '</div>' +
-    '<div class="emeta">' + esc(e.role) + '</div></div>' +
+    '<div class="emeta">' + esc(e.role) + '</div>' +
+    '<div class="emeta">' + esc(e.teamId || 'No ID') + ' · ' + esc(e.team || 'General') + (e.phone ? ' · ' + esc(e.phone) : ' · No number saved') + '</div>' +
+    '<div class="btnrow" style="margin-top:8px">' +
+      (e.phone ? '<a class="btn small" href="' + waLink(e.phone, 'Hi ' + e.name.split(' ')[0] + ', this is ' + (state.settings.agencyName || 'your agency') + '.') + '" target="_blank" rel="noopener">WhatsApp</a><a class="btn ghost small" href="tel:+' + waNumber(e.phone) + '">Call</a>' : '<span class="muted">Add a number to message or call.</span>') +
+      '<button class="btn ghost small" onclick="openEmployeeForm(\'' + e.id + '\')">Edit</button>' +
+      '<button class="btn danger small" onclick="deleteEmployee(\'' + e.id + '\')">Remove</button>' +
+    '</div></div>' +
     '<div>' + statusPill(e.status) + ' <span class="pill ' + wl.cls + '">' + wl.label + ' · ' + open.length + ' open tasks</span></div>' +
   '</div></div>' +
   '<div class="grid2"><div class="card"><h3>Roles &amp; responsibilities</h3><ul class="feed">' + e.responsibilities.map(r => '<li>' + esc(r) + '</li>').join('') + '</ul></div>' +
@@ -351,6 +365,43 @@ function viewTeamDetail(id) {
   '<div class="card"><h3>Recent activity</h3><ul class="feed">' + act + '</ul></div>';
 }
 
+/* ---------------- Team Groups (WhatsApp) ---------------- */
+function viewGroups() {
+  const byTeam = {};
+  state.employees.forEach(e => { const k = (e.team || 'General').trim() || 'General'; (byTeam[k] = byTeam[k] || []).push(e); });
+  const names = Object.keys(byTeam).sort();
+  if (!names.length) return '<p class="muted">No teammates yet. Add one from the Team page.</p>';
+  const cards = names.map(team => {
+    const members = byTeam[team];
+    const memberRows = members.map(e => {
+      const open = openTasksOf(e.id);
+      const taskList = open.length ? open.map(t => '<li>' + esc(t.title) + ' — due ' + fmtDate(t.deadline) + '</li>').join('') : '<li class="muted">No open tasks.</li>';
+      return '<div class="emp-row">' +
+        '<div class="avatar">' + esc(e.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()) + '</div>' +
+        '<div class="grow"><div class="ename">' + esc(e.name) + ' ' + (e.demo ? '<span class="pill amber">DEMO</span>' : '') + '</div>' +
+        '<div class="emeta">' + esc(e.teamId || 'No ID') + (e.phone ? ' · ' + esc(e.phone) : ' · No number') + '</div>' +
+        '<ul class="feed" style="margin-top:6px">' + taskList + '</ul></div>' +
+        '<div>' + (e.phone ? '<a class="btn small" href="' + waLink(e.phone, 'Hi ' + e.name.split(' ')[0] + ', this is ' + (state.settings.agencyName || 'your agency') + '.') + '" target="_blank" rel="noopener">WhatsApp</a> <a class="btn ghost small" href="tel:+' + waNumber(e.phone) + '">Call</a>' : '<span class="muted">No number</span>') + '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="card"><h3>' + esc(team) + ' Team · ' + members.length + ' member' + (members.length === 1 ? '' : 's') + '</h3>' + memberRows +
+      '<div class="btnrow" style="margin-top:12px"><button class="btn" onclick="copyGroupUpdate(this, \'' + team.replace(/'/g, "\\'") + '\')">Copy group task update</button></div></div>';
+  }).join('');
+  return '<div class="note"><b>WhatsApp groups:</b> a dashboard cannot create a WhatsApp group by itself — groups are made inside the WhatsApp app. Pick your team here, copy the task update, and paste it into the group you create in WhatsApp. Every member\'s number and open tasks are listed below, with one-tap WhatsApp and Call.</div>' + cards;
+}
+function copyGroupUpdate(btn, team) {
+  const members = state.employees.filter(e => ((e.team || 'General').trim() || 'General') === team);
+  const lines = ['Team update — ' + team + ' (' + (state.settings.agencyName || 'Agency') + ')'];
+  members.forEach(e => {
+    const open = openTasksOf(e.id);
+    lines.push('• ' + e.name + ' (' + (e.teamId || 'No ID') + '): ' + (open.length ? open.map(t => t.title + ' (due ' + fmtDate(t.deadline) + ')').join('; ') : 'no open tasks'));
+  });
+  const text = lines.join('\n');
+  const done = () => { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy group task update'; }, 2000); };
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done).catch(() => { prompt('Copy this update:', text); }); }
+  else { prompt('Copy this update:', text); }
+}
+
 /* ---------------- Tasks ---------------- */
 function taskCard(t) {
   const e = empById(t.assigneeId), c = clientById(t.clientId);
@@ -362,6 +413,7 @@ function taskCard(t) {
     '<div class="t-actions">' +
       (idx > 0 ? '<button class="btn ghost small" onclick="moveTask(\'' + t.id + '\',-1)">← Back</button>' : '') +
       (idx < 2 ? '<button class="btn small" onclick="moveTask(\'' + t.id + '\',1)">' + (t.status === 'doing' ? 'Mark done ✓' : 'Start →') + '</button>' : '') +
+      (e && e.phone ? '<a class="btn small" href="' + waLink(e.phone, taskMsg(t)) + '" target="_blank" rel="noopener">WhatsApp ' + esc(e.name.split(' ')[0]) + '</a><a class="btn ghost small" href="tel:+' + waNumber(e.phone) + '">Call</a>' : '') +
       '<button class="btn ghost small" onclick="openTaskForm(\'' + t.id + '\')">Edit</button>' +
       '<button class="btn danger small" onclick="deleteTask(\'' + t.id + '\')">Delete</button>' +
     '</div></div>';
@@ -724,21 +776,37 @@ function saveTask(ev, id) {
   save(); closeModal(); render();
 }
 
-function openEmployeeForm() {
-  openModal('<h2>Add teammate</h2><form onsubmit="saveEmployee(event)">' +
-    '<label>Name</label><input id="e-name" required placeholder="e.g. Rahul Kumar">' +
-    '<label>Role</label><input id="e-role" required placeholder="e.g. SEO Executive">' +
-    '<label>Status</label><select id="e-status"><option>Working</option><option>On leave</option><option>Offline</option></select>' +
-    '<label>Responsibilities (one per line)</label><textarea id="e-resp" rows="3" placeholder="LinkedIn outreach&#10;Client reporting"></textarea>' +
-    '<div class="btnrow" style="margin-top:14px"><button class="btn" type="submit">Add teammate</button><button class="btn ghost" type="button" onclick="closeModal()">Cancel</button></div></form>');
+function openEmployeeForm(id) {
+  const e = id ? state.employees.find(x => x.id === id) : null;
+  const teamId = e ? (e.teamId || '') : nextTeamId();
+  openModal('<h2>' + (e ? 'Edit teammate' : 'Add teammate') + '</h2><form onsubmit="saveEmployee(event,\'' + (id || '') + '\')">' +
+    '<label>Name</label><input id="e-name" required placeholder="e.g. Rahul Kumar" value="' + esc(e ? e.name : '') + '">' +
+    '<div class="form-grid"><div><label>Team ID</label><input id="e-teamid" required value="' + esc(teamId) + '"></div>' +
+    '<div><label>Team / group</label><input id="e-team" placeholder="e.g. Content" value="' + esc(e ? (e.team || '') : '') + '"></div></div>' +
+    '<div class="form-grid"><div><label>Phone / WhatsApp number</label><input id="e-phone" type="tel" placeholder="e.g. +91 98765 43210" value="' + esc(e ? (e.phone || '') : '') + '"></div>' +
+    '<div><label>Role</label><input id="e-role" required placeholder="e.g. SEO Executive" value="' + esc(e ? e.role : '') + '"></div></div>' +
+    '<label>Status</label><select id="e-status"><option' + (e && e.status === 'Working' ? ' selected' : '') + '>Working</option><option' + (e && e.status === 'On leave' ? ' selected' : '') + '>On leave</option><option' + (e && e.status === 'Offline' ? ' selected' : '') + '>Offline</option></select>' +
+    '<label>Responsibilities (one per line)</label><textarea id="e-resp" rows="3" placeholder="LinkedIn outreach&#10;Client reporting">' + esc(e ? e.responsibilities.join('\n') : '') + '</textarea>' +
+    '<div class="btnrow" style="margin-top:14px"><button class="btn" type="submit">' + (e ? 'Save changes' : 'Add teammate') + '</button><button class="btn ghost" type="button" onclick="closeModal()">Cancel</button></div></form>');
 }
-function saveEmployee(ev) {
+function saveEmployee(ev, id) {
   ev.preventDefault();
   const colors = ['#2997ff', '#a259ff', '#2fd47c', '#ffb547', '#ff5f6d', '#ff8a5c'];
   const resp = $('#e-resp').value.split('\n').map(s => s.trim()).filter(Boolean);
-  state.employees.push({ id: uid(), name: $('#e-name').value.trim(), role: $('#e-role').value.trim(), status: $('#e-status').value, responsibilities: resp.length ? resp : ['General agency work'], color: colors[state.employees.length % colors.length], demo: false });
-  logActivity('New teammate added: ' + $('#e-name').value.trim() + ' (' + $('#e-role').value.trim() + ').');
+  const data = { name: $('#e-name').value.trim(), role: $('#e-role').value.trim(), status: $('#e-status').value, responsibilities: resp.length ? resp : ['General agency work'], teamId: $('#e-teamid').value.trim(), team: $('#e-team').value.trim() || 'General', phone: $('#e-phone').value.trim() };
+  if (id) { const e = state.employees.find(x => x.id === id); if (!e) return; Object.assign(e, data); logActivity('Teammate updated: ' + data.name + ' (' + data.teamId + ').'); }
+  else { state.employees.push(Object.assign({ id: uid(), color: colors[state.employees.length % colors.length], demo: false }, data)); logActivity('New teammate added: ' + data.name + ' (' + data.teamId + ').'); }
   save(); closeModal(); render();
+}
+function deleteEmployee(id) {
+  const e = state.employees.find(x => x.id === id); if (!e) return;
+  const open = openTasksOf(id).length;
+  if (!confirm('Remove ' + e.name + ' (' + (e.teamId || 'no ID') + ')?' + (open ? ' Their ' + open + ' open task' + (open === 1 ? '' : 's') + ' will become Unassigned.' : ''))) return;
+  state.tasks.forEach(t => { if (t.assigneeId === id) t.assigneeId = ''; });
+  if (state.goals[id]) delete state.goals[id];
+  state.employees = state.employees.filter(x => x.id !== id);
+  logActivity('Teammate removed: ' + e.name + ' (' + (e.teamId || 'no ID') + ').');
+  save(); setView('team'); render();
 }
 
 function openClientForm(id) {
