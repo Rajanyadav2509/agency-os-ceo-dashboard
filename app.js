@@ -44,6 +44,21 @@ const CRM_WEIGHTS = { 'New Lead': 0.10, 'Qualified': 0.20, 'Discovery': 0.30, 'P
 const POST_STATUSES = ['Draft', 'Review', 'Approved', 'Scheduled', 'Published'];
 const BRIEF_STATUSES = ['Brief', 'Draft', 'Review', 'Revisions', 'Approved', 'Delivered'];
 
+/* Client social accounts (Sec. 6) — platforms a client profile can have.
+   Status is 'Manual entry' or 'Not connected' only: live sync needs the
+   client's platform authorization (OAuth), so an account is never shown
+   as 'Connected' unless a real integration is wired up. */
+const SOCIAL_PLATFORMS = ['LinkedIn', 'Instagram', 'X', 'Facebook', 'YouTube', 'TikTok', 'Threads', 'Website / Blog', 'Other'];
+let socialPeriod = '30d';
+function fmtDT(iso) { if (!iso) return '—'; const d = new Date(iso); return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' ' + timeHM(iso); }
+function socialMetrics(a, period) { return (a.metrics && a.metrics[period]) || null; }
+function engRate(m) { if (!m || !m.reach) return 0; return m.engagement / m.reach * 100; }
+function trendHTML(cur, prev) {
+  if (cur == null && prev == null) return '<span class="muted">—</span>';
+  const d = (Number(cur) || 0) - (Number(prev) || 0);
+  return '<span class="' + (d >= 0 ? 'metric-up' : 'metric-down') + '">' + (d >= 0 ? '+' : '−') + Math.abs(d).toLocaleString('en-IN') + '</span>';
+}
+
 /* ---------------- Seed data ---------------- */
 function seed() {
   const emp = (name, role, status, resp, color, teamId, phone, team) => ({ id: uid(), name, role, status, responsibilities: resp, color, demo: true, teamId, phone, team });
@@ -56,19 +71,52 @@ function seed() {
   ];
   const E = i => employees[i].id;
 
+  /* Demo social accounts for demo clients (Sec. 6) — manual-entry metrics,
+     clearly labeled DEMO. Real clients (Amarendra, Alexx) get NO social
+     accounts here: their profile URLs are not known, so they stay empty
+     with an "Add link" prompt in the client detail. */
+  const M = (followers, prevFollowers, reach, prevReach, impressions, engagement, posts, hrs) => ({ followers, prevFollowers, reach, prevReach, impressions, engagement, posts, updatedAt: hoursAgo(hrs) });
+  const soc = (platform, handle, url, m7, m30) => ({ id: uid(), platform, handle, url, status: 'Manual entry', demo: true, metrics: { '7d': m7, '30d': m30 } });
+
   const clients = [
     { id: 'c-amarendra', name: 'Amarendra Nath Sasmal', service: 'LinkedIn Growth & Personal Branding', niche: 'Time Reset Mentor', startDate: '', deadline: '', amount: '', status: 'Active', demo: false,
       results: { profileViews: 1432, impressions: 1029, searchAppearances: 77, followers: 3058 },
+      social: [],
       notes: 'Creator of the PACT Performance Framework. LinkedIn results are from his verified analytics.' },
     { id: 'c-alexx', name: 'Alexx Roy', service: 'LinkedIn Growth', niche: 'Freedom Lifestyle', startDate: '', deadline: '', amount: '', status: 'Active', demo: false,
       results: { profileViews: 533, impressions: 821, searchAppearances: 30, followers: 2740 },
+      social: [],
       notes: 'Creator-focused personal brand. LinkedIn results are from his verified analytics.' },
     { id: 'c-fitlife', name: 'FitLife Gym', service: 'Instagram Growth', niche: 'Fitness', startDate: addDays(-40), deadline: addDays(10), amount: 25000, status: 'Active', demo: true,
-      results: null, notes: 'Demo client.' },
+      results: null,
+      social: [
+        soc('Instagram', '@fitlife.gym.demo', 'https://www.instagram.com/fitlife.gym.demo',
+          M(12400, 12150, 12800, 10900, 24100, 1480, 4, 5),
+          M(12400, 11800, 48200, 42100, 96400, 5210, 14, 5)),
+      ],
+      notes: 'Demo client.' },
     { id: 'c-techstart', name: 'TechStart Solutions', service: 'Meta Ads', niche: 'SaaS', startDate: addDays(-25), deadline: addDays(21), amount: 40000, status: 'Active', demo: true,
-      results: null, notes: 'Demo client.' },
+      results: null,
+      social: [
+        soc('LinkedIn', 'TechStart Solutions', 'https://www.linkedin.com/company/techstart-solutions-demo',
+          M(3800, 3720, 5600, 4900, 8200, 340, 2, 6),
+          M(3800, 3500, 21400, 18900, 30200, 1240, 8, 6)),
+        soc('X', '@techstart.demo', 'https://x.com/techstart_demo',
+          M(2100, 2120, 2400, 2900, 3900, 150, 3, 6),
+          M(2100, 2150, 9800, 11200, 15400, 620, 10, 6)),
+      ],
+      notes: 'Demo client.' },
     { id: 'c-aroma', name: 'Cafe Aroma', service: 'Social Media Management', niche: 'Cafe', startDate: addDays(-60), deadline: addDays(5), amount: 15000, status: 'Active', demo: true,
-      results: null, notes: 'Demo client.' },
+      results: null,
+      social: [
+        soc('Instagram', '@cafearoma.demo', 'https://www.instagram.com/cafearoma.demo',
+          M(8600, 8450, 8400, 7300, 16200, 940, 3, 4),
+          M(8600, 8300, 31200, 27600, 58900, 3420, 12, 4)),
+        soc('Facebook', 'Cafe Aroma', 'https://www.facebook.com/cafearoma.demo',
+          M(5400, 5350, 5100, 4600, 8900, 520, 2, 4),
+          M(5400, 5300, 18900, 17400, 32100, 1980, 9, 4)),
+      ],
+      notes: 'Demo client.' },
   ];
 
   /* Projects (Sec. 5) — every task below is linked to one of these. All demo. */
@@ -254,6 +302,17 @@ function load() {
   state.tasks.forEach(t => { if (!t.projectId) { const p = state.projects.find(x => x.clientId === t.clientId); if (p) t.projectId = p.id; } });
   // Connections: the canonical 8 accounts from the GitHub profile
   if (!state.connections || !state.connections.some(c => c.platform === 'GitHub')) state.connections = SOCIAL_ACCOUNTS.map(a => ({ id: uid(), ...a }));
+  // Client social accounts (added 2026-11-26): every client gains a list;
+  // old saved states keep working. Real clients stay empty (no invented
+  // URLs); demo clients gain their demo accounts if they have none.
+  state.clients.forEach(c => {
+    if (!Array.isArray(c.social)) c.social = [];
+    c.social.forEach(a => { if (!a.id) a.id = uid(); if (!a.status) a.status = 'Manual entry'; if (!a.metrics) a.metrics = {}; });
+    if (c.demo && c.social.length === 0) {
+      const demoClient = s2.clients.find(x => x.id === c.id);
+      if (demoClient && demoClient.social && demoClient.social.length) c.social = demoClient.social;
+    }
+  });
   save();
 }
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
@@ -307,7 +366,7 @@ function demoTag() { return ' <span class="pill amber">DEMO</span>'; }
 /* ---------------- Navigation ---------------- */
 let currentView = 'overview', viewParam = null;
 let taskFilter = { person: 'all', client: 'all', status: 'all' };
-const TITLES = { overview: 'CEO Command Center', alerts: 'Alerts Center', team: 'Team', tasks: 'Tasks', clients: 'Clients', crm: 'CRM & Pipeline', proposals: 'Sales & Proposals', catalog: 'Service Catalog', projects: 'Projects', social: 'Social Calendar', content: 'Content Studio', seo: 'SEO', portal: 'Client Portal', finance: 'Finance', marketing: 'Marketing', goals: 'Company Goals', reports: 'Reports', deadlines: 'Deadlines', hr: 'HR', attendance: 'Attendance & Leave', performance: 'Performance', workload: 'Workload', activity: 'Activity Log', ads: 'Paid Ads', connections: 'Connections', settings: 'Settings' };
+const TITLES = { overview: 'CEO Command Center', alerts: 'Alerts Center', team: 'Team', tasks: 'Tasks', clients: 'Clients', crm: 'CRM & Pipeline', proposals: 'Sales & Proposals', catalog: 'Service Catalog', projects: 'Projects', social: 'Social Calendar', monitoring: 'Social Monitoring', content: 'Content Studio', seo: 'SEO', portal: 'Client Portal', finance: 'Finance', marketing: 'Marketing', goals: 'Company Goals', reports: 'Reports', deadlines: 'Deadlines', hr: 'HR', attendance: 'Attendance & Leave', performance: 'Performance', workload: 'Workload', activity: 'Activity Log', ads: 'Paid Ads', connections: 'Connections', settings: 'Settings' };
 
 function setView(v, param) {
   currentView = v; viewParam = param || null;
@@ -328,6 +387,7 @@ function render() {
   else if (currentView === 'catalog') el.innerHTML = viewCatalog();
   else if (currentView === 'projects') el.innerHTML = viewProjects();
   else if (currentView === 'social') el.innerHTML = viewSocial();
+  else if (currentView === 'monitoring') el.innerHTML = viewMonitoring();
   else if (currentView === 'content') el.innerHTML = viewContent();
   else if (currentView === 'seo') el.innerHTML = viewSEO();
   else if (currentView === 'portal') el.innerHTML = viewPortal();
@@ -766,7 +826,79 @@ function viewClientDetail(id) {
   '<div class="stat"><div class="slabel">Open tasks</div><div class="svalue">' + open + '</div></div></div>' + profitLine +
   '<p class="muted">' + esc(c.notes || '') + '</p></div>' +
   res +
+  clientSocialHTML(c) +
   '<div class="card"><h3>Tasks for this client</h3>' + (ct.length ? '<table><tr><th>Task</th><th>Owner</th><th>Deadline</th><th>Status</th></tr>' + rows + '</table>' : '<p class="empty">No tasks for this client yet.</p>') + '</div>';
+}
+
+/* ---------------- Client social accounts & analytics (Sec. 6) ---------------- */
+function setSocialPeriod(v) { socialPeriod = v; render(); }
+function clientSocialHTML(c) {
+  const accounts = c.social || [];
+  const periodSelect = '<select onchange="setSocialPeriod(this.value)" style="width:auto"><option value="30d"' + (socialPeriod === '30d' ? ' selected' : '') + '>Last 30 days</option><option value="7d"' + (socialPeriod === '7d' ? ' selected' : '') + '>Last 7 days</option></select>';
+  if (!accounts.length) {
+    return '<div class="card"><h3>Social accounts</h3><p class="muted">No social accounts added for this client yet.</p>' +
+    '<div class="btnrow" style="margin-top:10px"><button class="btn" onclick="openClientForm(\'' + c.id + '\')">+ Add link</button></div>' +
+    '<p class="muted" style="margin-top:10px">Add each profile link here, then monitor followers, reach and engagement. Metrics are entered manually — live platform sync needs the client’s official authorization (Sec. 6).</p></div>';
+  }
+  const cards = accounts.map(a => {
+    const m = socialMetrics(a, socialPeriod);
+    const er = m ? engRate(m) : 0;
+    const metricsHTML = m ?
+      '<div class="stat-grid">' +
+      '<div class="stat"><div class="slabel">Followers</div><div class="svalue">' + (m.followers || 0).toLocaleString('en-IN') + '</div><div class="slabel">Change: ' + trendHTML(m.followers, m.prevFollowers) + '</div></div>' +
+      '<div class="stat"><div class="slabel">Reach</div><div class="svalue">' + (m.reach || 0).toLocaleString('en-IN') + '</div><div class="slabel">Prev: ' + (m.prevReach || 0).toLocaleString('en-IN') + '</div></div>' +
+      '<div class="stat"><div class="slabel">Impressions</div><div class="svalue">' + (m.impressions || 0).toLocaleString('en-IN') + '</div></div>' +
+      '<div class="stat"><div class="slabel">Engagement</div><div class="svalue">' + (m.engagement || 0).toLocaleString('en-IN') + '</div><div class="slabel">Rate: ' + er.toFixed(1) + '%</div></div>' +
+      '<div class="stat"><div class="slabel">Posts</div><div class="svalue">' + (m.posts || 0) + '</div></div>' +
+      '<div class="stat"><div class="slabel">Last updated</div><div class="svalue" style="font-size:15px">' + fmtDT(m.updatedAt) + '</div></div></div>'
+      : '<p class="muted">No metrics entered for this period yet — use “Update metrics” to add them manually.</p>';
+    return '<div class="card" style="margin-top:12px"><div class="emp-row" style="border:none;padding:0"><div class="grow"><b>' + esc(a.platform) + '</b> ' + (a.demo ? '<span class="pill amber">DEMO</span>' : '') + ' <span class="pill ' + (a.status === 'Manual entry' ? 'grey' : 'amber') + '">' + esc(a.status) + '</span><div class="emeta">' + esc(a.handle || '—') + '</div></div>' +
+      (a.url ? '<a class="btn small" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open ↗</a>' : '') +
+      '<button class="btn ghost small" onclick="openSocialConnect(\'' + c.id + '\',\'' + a.id + '\')">How to connect</button>' +
+      '<button class="btn small" onclick="openMetricsForm(\'' + c.id + '\',\'' + a.id + '\')">Update metrics</button></div>' +
+      (a.url ? '<p class="muted" style="margin-top:8px"><a href="' + esc(a.url) + '" target="_blank" rel="noopener" style="color:var(--lime)">' + esc(a.url) + '</a></p>' : '<p class="muted" style="margin-top:8px">No profile link yet — edit the client to add one.</p>') +
+      metricsHTML + '</div>';
+  }).join('');
+  return '<div class="card"><h3>Social accounts &amp; analytics <span class="pill amber">MANUAL ENTRY</span></h3>' +
+    '<div class="toolbar"><span class="muted">Metrics are entered by hand — live platform sync needs the client’s official authorization (Sec. 6).</span><span style="flex:1"></span>' + periodSelect +
+    '<button class="btn ghost small" onclick="openClientForm(\'' + c.id + '\')">Manage accounts</button></div>' + cards + '</div>';
+}
+function openSocialConnect(clientId, accountId) {
+  const c = clientById(clientId); if (!c) return;
+  const a = (c.social || []).find(x => x.id === accountId); if (!a) return;
+  openModal('<h2>Connect ' + esc(a.platform) + '</h2>' +
+    '<p class="muted">Account: <b>' + esc(a.handle || '—') + '</b> · Status: <b>' + esc(a.status) + '</b></p>' +
+    (a.url ? '<p><a href="' + esc(a.url) + '" target="_blank" rel="noopener" style="color:var(--lime)">' + esc(a.url) + '</a></p>' : '') +
+    '<div class="note"><b>Live sync needs the client’s authorization:</b><br>1. The client logs in to ' + esc(a.platform) + ' and authorises this dashboard (OAuth) — passwords are never collected here.<br>2. Only then can followers, reach and engagement load live.<br>3. Until then, every number on this page is a manual entry, clearly labeled — it is never a live platform figure.</div>' +
+    '<div class="btnrow">' + (a.url ? '<a class="btn" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open profile ↗</a>' : '') + '<button class="btn ghost" onclick="closeModal()">Close</button></div>');
+}
+function openMetricsForm(clientId, accountId) {
+  const c = clientById(clientId); if (!c) return;
+  const a = (c.social || []).find(x => x.id === accountId); if (!a) return;
+  const m = socialMetrics(a, socialPeriod) || {};
+  const num = v => (v == null ? '' : v);
+  openModal('<h2>Update metrics — ' + esc(a.platform) + '</h2>' +
+    '<p class="muted">' + esc(c.name) + ' · ' + esc(a.handle || '') + ' · period: <b>' + (socialPeriod === '7d' ? 'Last 7 days' : 'Last 30 days') + '</b></p>' +
+    '<form onsubmit="saveMetrics(event,\'' + clientId + '\',\'' + accountId + '\')">' +
+    '<div class="form-grid"><div><label>Followers (now)</label><input id="m-followers" type="number" min="0" value="' + num(m.followers) + '"></div>' +
+    '<div><label>Followers (previous period)</label><input id="m-prev-followers" type="number" min="0" value="' + num(m.prevFollowers) + '"></div></div>' +
+    '<div class="form-grid"><div><label>Reach (this period)</label><input id="m-reach" type="number" min="0" value="' + num(m.reach) + '"></div>' +
+    '<div><label>Reach (previous period)</label><input id="m-prev-reach" type="number" min="0" value="' + num(m.prevReach) + '"></div></div>' +
+    '<div class="form-grid"><div><label>Impressions</label><input id="m-impressions" type="number" min="0" value="' + num(m.impressions) + '"></div>' +
+    '<div><label>Engagement (likes + comments + shares + saves)</label><input id="m-engagement" type="number" min="0" value="' + num(m.engagement) + '"></div></div>' +
+    '<div class="form-grid"><div><label>Posts published</label><input id="m-posts" type="number" min="0" value="' + num(m.posts) + '"></div></div>' +
+    '<p class="muted" style="margin-top:10px">Manual entry — these numbers come from the client’s platform analytics, typed in by hand. The last-updated time is saved with them.</p>' +
+    '<div class="btnrow" style="margin-top:14px"><button class="btn" type="submit">Save metrics</button><button class="btn ghost" type="button" onclick="closeModal()">Cancel</button></div></form>');
+}
+function saveMetrics(ev, clientId, accountId) {
+  ev.preventDefault();
+  const c = clientById(clientId); if (!c) return;
+  const a = (c.social || []).find(x => x.id === accountId); if (!a) return;
+  const n = id => Number($(id).value) || 0;
+  a.metrics = a.metrics || {};
+  a.metrics[socialPeriod] = { followers: n('#m-followers'), prevFollowers: n('#m-prev-followers'), reach: n('#m-reach'), prevReach: n('#m-prev-reach'), impressions: n('#m-impressions'), engagement: n('#m-engagement'), posts: n('#m-posts'), updatedAt: new Date().toISOString() };
+  logActivity('Metrics updated for ' + c.name + ' — ' + a.platform + ' (' + (socialPeriod === '7d' ? 'last 7 days' : 'last 30 days') + ').');
+  save(); closeModal(); render();
 }
 
 /* ---------------- Meta Ads ---------------- */
@@ -1085,8 +1217,36 @@ function deleteEmployee(id) {
   save(); setView('team'); render();
 }
 
+/* Client form social rows — draft lives only while the modal is open;
+   metrics stay on the saved account record and are merged back by id. */
+let clientSocialDraft = [];
+function socialRowHTML(a, i) {
+  const platOpts = SOCIAL_PLATFORMS.map(p => '<option' + (a.platform === p ? ' selected' : '') + '>' + p + '</option>').join('');
+  return '<div class="sa-row" data-id="' + esc(a.id) + '">' +
+    '<div><label>Platform</label><select class="sa-platform">' + platOpts + '</select></div>' +
+    '<div><label>Handle</label><input class="sa-handle" value="' + esc(a.handle || '') + '" placeholder="@handle"></div>' +
+    '<div><label>Profile URL</label><input class="sa-url" value="' + esc(a.url || '') + '" placeholder="https://…"></div>' +
+    '<div><label>Status</label><select class="sa-status"><option' + (a.status === 'Manual entry' ? ' selected' : '') + '>Manual entry</option><option' + (a.status === 'Not connected' ? ' selected' : '') + '>Not connected</option></select></div>' +
+    '<div class="sa-x"><button class="btn danger small" type="button" onclick="removeSocialAccountRow(' + i + ')">✕</button></div></div>';
+}
+function renderSocialRows() {
+  const w = $('#sa-rows');
+  if (w) w.innerHTML = clientSocialDraft.length ? clientSocialDraft.map((a, i) => socialRowHTML(a, i)).join('') : '<p class="muted">No social accounts — add one below.</p>';
+}
+function syncSocialDraft() {
+  document.querySelectorAll('#sa-rows .sa-row').forEach((row, i) => {
+    const d = clientSocialDraft[i]; if (!d) return;
+    d.platform = row.querySelector('.sa-platform').value;
+    d.handle = row.querySelector('.sa-handle').value.trim();
+    d.url = row.querySelector('.sa-url').value.trim();
+    d.status = row.querySelector('.sa-status').value;
+  });
+}
+function addSocialAccountRow() { syncSocialDraft(); clientSocialDraft.push({ id: uid(), platform: 'Instagram', handle: '', url: '', status: 'Manual entry', metrics: {} }); renderSocialRows(); }
+function removeSocialAccountRow(i) { syncSocialDraft(); clientSocialDraft.splice(i, 1); renderSocialRows(); }
 function openClientForm(id) {
   const c = id ? clientById(id) : null;
+  clientSocialDraft = c ? (c.social || []).map(a => ({ id: a.id, platform: a.platform, handle: a.handle || '', url: a.url || '', status: a.status || 'Manual entry', metrics: a.metrics || {} })) : [];
   openModal('<h2>' + (c ? 'Edit client' : 'Add client') + '</h2><form onsubmit="saveClient(event,\'' + (id || '') + '\')">' +
     '<label>Client name</label><input id="c-name" required value="' + esc(c ? c.name : '') + '">' +
     '<div class="form-grid"><div><label>Service</label><input id="c-service" value="' + esc(c ? c.service : '') + '" placeholder="e.g. LinkedIn Growth"></div>' +
@@ -1096,11 +1256,25 @@ function openClientForm(id) {
     '<div class="form-grid"><div><label>Amount / month (₹)</label><input id="c-amount" type="number" min="0" value="' + (c ? c.amount : '') + '"></div>' +
     '<div><label>Status</label><select id="c-status"><option' + (!c || c.status === 'Active' ? ' selected' : '') + '>Active</option><option' + (c && c.status === 'Paused' ? ' selected' : '') + '>Paused</option><option' + (c && c.status === 'Completed' ? ' selected' : '') + '>Completed</option></select></div></div>' +
     '<label>Notes</label><textarea id="c-notes" rows="2">' + esc(c ? c.notes || '' : '') + '</textarea>' +
+    '<h3 style="margin-top:16px">Social accounts</h3>' +
+    '<p class="muted">Add each profile the client owns. Links are manual entries — live sync needs the client’s platform authorization (Sec. 6), so status stays “Manual entry” until a real integration is connected.</p>' +
+    '<div id="sa-rows">' + (clientSocialDraft.length ? clientSocialDraft.map((a, i) => socialRowHTML(a, i)).join('') : '<p class="muted">No social accounts — add one below.</p>') + '</div>' +
+    '<div class="btnrow"><button class="btn ghost small" type="button" onclick="addSocialAccountRow()">+ Add account</button></div>' +
     '<div class="btnrow" style="margin-top:14px"><button class="btn" type="submit">Save client</button><button class="btn ghost" type="button" onclick="closeModal()">Cancel</button></div></form>');
 }
 function saveClient(ev, id) {
   ev.preventDefault();
-  const data = { name: $('#c-name').value.trim(), service: $('#c-service').value.trim(), niche: $('#c-niche').value.trim(), startDate: $('#c-start').value, deadline: $('#c-deadline').value, amount: $('#c-amount').value, status: $('#c-status').value, notes: $('#c-notes').value.trim() };
+  const social = [];
+  document.querySelectorAll('#sa-rows .sa-row').forEach(row => {
+    const platform = row.querySelector('.sa-platform').value;
+    const handle = row.querySelector('.sa-handle').value.trim();
+    const url = row.querySelector('.sa-url').value.trim();
+    const status = row.querySelector('.sa-status').value;
+    if (!handle && !url) return;
+    const old = id ? ((clientById(id).social) || []).find(a => a.id === row.dataset.id) : null;
+    social.push({ id: row.dataset.id || uid(), platform, handle, url, status, metrics: old ? (old.metrics || {}) : {} });
+  });
+  const data = { name: $('#c-name').value.trim(), service: $('#c-service').value.trim(), niche: $('#c-niche').value.trim(), startDate: $('#c-start').value, deadline: $('#c-deadline').value, amount: $('#c-amount').value, status: $('#c-status').value, notes: $('#c-notes').value.trim(), social };
   if (id) { const c = clientById(id); if (c) { Object.assign(c, data); logActivity('Client updated: ' + c.name + '.'); } }
   else { state.clients.push(Object.assign({ id: uid(), demo: false, results: null }, data)); logActivity('New client added: ' + data.name + '.'); }
   save(); closeModal(); render();
@@ -1348,6 +1522,51 @@ function deletePost(id) {
   if (!confirm('Delete post “' + p.caption.slice(0, 40) + '”?')) return;
   state.posts = state.posts.filter(x => x.id !== id);
   save(); render();
+}
+
+/* ---------------- Social Monitoring (Sec. 6 + Sec. 13) ---------------- */
+function viewMonitoring() {
+  const all = [];
+  state.clients.forEach(c => (c.social || []).forEach(a => all.push({ c, a })));
+  const withM = all.filter(x => socialMetrics(x.a, socialPeriod));
+  const totFollowers = withM.reduce((s, x) => s + (socialMetrics(x.a, socialPeriod).followers || 0), 0);
+  const totReach = withM.reduce((s, x) => s + (socialMetrics(x.a, socialPeriod).reach || 0), 0);
+  const totImpr = withM.reduce((s, x) => s + (socialMetrics(x.a, socialPeriod).impressions || 0), 0);
+  const totEng = withM.reduce((s, x) => s + (socialMetrics(x.a, socialPeriod).engagement || 0), 0);
+  const avgER = totReach ? (totEng / totReach * 100) : 0;
+  const noLink = state.clients.filter(c => !(c.social || []).length);
+  const sorted = all.slice().sort((x, y) => {
+    const mx = socialMetrics(x.a, socialPeriod), my = socialMetrics(y.a, socialPeriod);
+    return ((my && my.followers) || 0) - ((mx && mx.followers) || 0);
+  });
+  const rows = sorted.map(x => {
+    const m = socialMetrics(x.a, socialPeriod);
+    const er = m ? engRate(m) : 0;
+    return '<tr class="clickable" onclick="setView(\'clients\',\'' + x.c.id + '\')"><td><b>' + esc(x.c.name) + '</b>' + (x.c.demo ? ' <span class="pill amber">DEMO</span>' : '') + '</td>' +
+      '<td>' + esc(x.a.platform) + '</td>' +
+      '<td>' + (x.a.url ? '<a href="' + esc(x.a.url) + '" target="_blank" rel="noopener" style="color:var(--lime)" onclick="event.stopPropagation()">' + esc(x.a.handle || x.a.url) + '</a>' : esc(x.a.handle || '—')) + '</td>' +
+      '<td>' + (m ? (m.followers || 0).toLocaleString('en-IN') : '—') + '</td>' +
+      '<td>' + (m ? trendHTML(m.followers, m.prevFollowers) : '—') + '</td>' +
+      '<td>' + (m ? (m.reach || 0).toLocaleString('en-IN') : '—') + '</td>' +
+      '<td>' + (m ? (m.impressions || 0).toLocaleString('en-IN') : '—') + '</td>' +
+      '<td>' + (m ? (m.engagement || 0).toLocaleString('en-IN') : '—') + '</td>' +
+      '<td>' + (m ? er.toFixed(1) + '%' : '—') + '</td>' +
+      '<td>' + (m ? fmtDT(m.updatedAt) : '<span class="muted">No metrics yet</span>') + '</td></tr>';
+  }).join('');
+  return '' +
+  '<div class="kpis">' +
+    '<div class="card kpi"><div class="label">Accounts tracked</div><div class="value">' + all.length + '</div><div class="sub">across ' + state.clients.length + ' clients</div></div>' +
+    '<div class="card kpi"><div class="label">Total followers</div><div class="value">' + totFollowers.toLocaleString('en-IN') + '</div><div class="sub">sum of entered metrics · ' + (socialPeriod === '7d' ? 'last 7 days' : 'last 30 days') + '</div></div>' +
+    '<div class="card kpi"><div class="label">Total reach</div><div class="value">' + totReach.toLocaleString('en-IN') + '</div><div class="sub">' + totImpr.toLocaleString('en-IN') + ' impressions</div></div>' +
+    '<div class="card kpi"><div class="label">Avg engagement rate</div><div class="value">' + avgER.toFixed(1) + '%</div><div class="sub">' + totEng.toLocaleString('en-IN') + ' engagements</div></div>' +
+  '</div>' +
+  '<div class="card"><h3>Live monitoring — all client accounts <span class="pill amber">MANUAL ENTRY</span></h3>' +
+  '<div class="toolbar"><span class="muted">Period:</span><select onchange="setSocialPeriod(this.value)" style="width:auto"><option value="30d"' + (socialPeriod === '30d' ? ' selected' : '') + '>Last 30 days</option><option value="7d"' + (socialPeriod === '7d' ? ' selected' : '') + '>Last 7 days</option></select>' +
+  '<span class="muted">Click a row to open that client; click a handle to open the profile. Numbers are entered by hand — live platform sync needs each client’s official authorization (Sec. 6).</span></div>' +
+  (all.length ? '<div style="overflow-x:auto"><table><tr><th>Client</th><th>Platform</th><th>Handle</th><th>Followers</th><th>Growth</th><th>Reach</th><th>Impressions</th><th>Engagement</th><th>ER</th><th>Last updated</th></tr>' + rows + '</table></div>'
+    : '<p class="empty">No social accounts added yet. Add them from a client’s detail page — “Manage accounts”.</p>') + '</div>' +
+  (noLink.length ? '<div class="note"><b>No social links yet:</b> ' + noLink.map(c => esc(c.name)).join(', ') + ' — open the client and use “Add link” to start monitoring them.</div>' : '') +
+  '<div class="note"><b>Honest note (Sec. 6):</b> this is manual-entry monitoring. Real live numbers appear only after each client authorises their platform account (OAuth) — no passwords are collected here, and nothing is shown as “Connected” until a real integration is wired up.</div>';
 }
 
 /* ---------------- Content Studio (Sec. 7) ---------------- */

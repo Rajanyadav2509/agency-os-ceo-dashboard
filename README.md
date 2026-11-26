@@ -38,7 +38,8 @@ Sidebar groups, in order:
   Service Catalog (§5)
 - **Delivery** — Projects (§5, progress from linked tasks), Tasks, Social
   Calendar (§6, Draft → Review → Approved → Scheduled → Published),
-  Content Studio (§7 briefs + revision rounds), SEO (§8 keywords, audits,
+  Social Monitoring (§6 + §13, per-client social accounts with manual-entry
+  analytics), Content Studio (§7 briefs + revision rounds), SEO (§8 keywords, audits,
   issues), Paid Ads (§9 budgets, spend, leads, conversions, CPA, ROAS),
   Clients, Client Portal (§14, read-only client view)
 - **Business** — Finance (§11 invoices, expenses, receivables aging,
@@ -93,6 +94,19 @@ drills down to its source view.
   tasks; tasks link to projects from the task form.
 - **Social Calendar** — content calendar with the §6 approval workflow;
   clients can approve posts and briefs from the Client Portal.
+- **Social Monitoring** — every client's social accounts in one live
+  dashboard: platform, handle, followers, growth, reach, impressions,
+  engagement, engagement rate, trend vs previous period and last-updated
+  time, for Last 7 days / Last 30 days. Click a row to open that client.
+  Each client record holds its own accounts (platform, handle, profile URL,
+  status) — add, edit or remove them from the client form. Analytics are
+  **manual entries** (an "Update metrics" action on the client detail) with
+  a saved last-updated time, clearly labeled MANUAL ENTRY. Live platform
+  sync needs each client's official authorization (OAuth, §6) — nothing is
+  shown as "Connected" until a real integration is wired up. Real clients
+  Amarendra and Alexx have no social links yet (their profile URLs are not
+  known) — their verified LinkedIn numbers stay where they already were,
+  on the client detail, and nowhere else.
 - **Content Studio** — creative briefs with type, owner, status and counted
   revision rounds.
 - **SEO** — keyword map (intent, target page, priority, position), technical
@@ -122,10 +136,15 @@ localStorage key `agencyos-v1` holds: settings, employees, clients, tasks,
 campaigns, connections, goals, attendance, leaveRequests, announcements,
 finance, leads, marketing, companyGoals, activity — plus the blueprint
 collections: proposals, services, projects, posts, briefs, keywords,
-seoIssues. Older saved states migrate automatically (lead stages map to the
-§4 lifecycle, campaigns gain budget/conversions, tasks link to their
-client's project, connections are replaced by the 8 GitHub-profile
-accounts). Login credentials live separately under key `agencyos-auth`;
+seoIssues. Each client also holds `social`: a list of accounts
+`{ id, platform, handle, url, status, metrics: { '7d': {...}, '30d': {...} } }`
+where each period's metrics are `{ followers, prevFollowers, reach,
+prevReach, impressions, engagement, posts, updatedAt }`. Older saved states
+migrate automatically (lead stages map to the §4 lifecycle, campaigns gain
+budget/conversions, tasks link to their client's project, connections are
+replaced by the 8 GitHub-profile accounts, clients gain an empty
+`social` list — demo clients gain their demo accounts). Login credentials
+live separately under key `agencyos-auth`;
 the session flag lives in sessionStorage (`agencyos-session`).
 
 ## Going live / GitHub
