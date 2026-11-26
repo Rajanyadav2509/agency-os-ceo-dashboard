@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgencyOS — CEO Dashboard</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">Agency<span>OS</span></div>
+    <div class="ceo-card">
+      <div class="ceo-avatar" id="ceoAvatar">RY</div>
+      <div>
+        <div class="ceo-name" id="ceoName">Rajan Yadav</div>
+        <div class="ceo-role">CEO · <span id="agencyNameSide">Raj Digital Agency</span></div>
+      </div>
+    </div>
+    <nav id="nav">
+      <button data-view="overview" class="active">Overview</button>
+      <button data-view="alerts">Alerts</button>
+      <button data-view="team">Team</button>
+      <button data-view="tasks">Tasks</button>
+      <button data-view="clients">Clients</button>
+      <button data-view="leads">Leads</button>
+      <button data-view="finance">Finance</button>
+      <button data-view="marketing">Marketing</button>
+      <button data-view="goals">Goals</button>
+      <button data-view="reports">Reports</button>
+      <button data-view="deadlines">Deadlines</button>
+      <button data-view="attendance">Attendance</button>
+      <button data-view="performance">Performance</button>
+      <button data-view="workload">Workload</button>
+      <button data-view="activity">Activity Log</button>
+      <button data-view="ads">Meta Ads</button>
+      <button data-view="connections">Connections</button>
+      <button data-view="settings">Settings</button>
+    </nav>
+    <div class="side-foot">
+      <span class="demo-badge">DEMO DATA</span>
+      <p>Sample employees, tasks and ad numbers. Replace them with your real team in Settings / Team.</p>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <h1 id="viewTitle">CEO Overview</h1>
+      <div class="top-right">
+        <span id="topDate"></span>
+        <span class="live-dot" title="Live — updates across tabs">● LIVE</span>
+      </div>
+    </header>
+    <section id="view"></section>
+  </main>
+</div>
+<div id="modal-root"></div>
+<script src="app.js"></script>
+</body>
+</html>
